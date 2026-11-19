@@ -1,0 +1,61 @@
+import jwt from 'jsonwebtoken';
+import prisma from '../config/db.js';
+import { errorResponse } from '../utils/responseHandler.js';
+
+export const authenticate = async (req, res, next) => {
+  try {
+    let token = null;
+
+    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
+      token = req.headers.authorization.split(' ')[1];
+    }
+
+    if (!token) {
+      return errorResponse(res, 401, 'Authentication token required');
+    }
+
+    const secret = process.env.JWT_SECRET || 'dinedesk_jwt_secret_key_2026_super_secure';
+    let decoded;
+
+    try {
+      decoded = jwt.verify(token, secret);
+    } catch (err) {
+      return errorResponse(res, 401, 'Invalid or expired token');
+    }
+
+    // Fetch user from DB to ensure they still exist and are active
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.id },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        isActive: true,
+        restaurantId: true,
+        restaurant: {
+          select: {
+            id: true,
+            name: true,
+            address: true,
+            phone: true,
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      return errorResponse(res, 401, 'User account no longer exists');
+    }
+
+    if (!user.isActive) {
+      return errorResponse(res, 403, 'User account is deactivated');
+    }
+
+    req.user = user;
+    next();
+  } catch (error) {
+    console.error('Auth middleware error:', error);
+    return errorResponse(res, 500, 'Authentication error');
+  }
+};

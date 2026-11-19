@@ -1,15 +1,243 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+// USER ROLES
+enum UserRole {
+  RESTAURANT_ADMIN
+  MANAGER
+  FRONT_OF_HOUSE
+  KITCHEN_STAFF
+}
+
+// ORDER TYPES
+enum OrderType {
+  DINE_IN
+  TAKEAWAY
+  DELIVERY
+}
+
+// ORDER STATUS
+enum OrderStatus {
+  PLACED
+  ACCEPTED
+  PREPARING
+  READY
+  SERVED
+  COMPLETED
+  CANCELLED
+}
+
+// PAYMENT STATUS
+enum PaymentStatus {
+  UNPAID
+  PAID
+  REFUNDED
+}
+
+// PAYMENT METHOD
+enum PaymentMethod {
+  CASH
+  CARD
+  UPI
+  OTHER
+}
+
+// RESTAURANT
+model Restaurant {
+  id        String   @id @default(uuid())
+  name      String
+  address   String?
+  phone     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users       User[]
+  categories  MenuCategory[]
+  menuItems   MenuItem[]
+  orders      Order[]
+  tables      DiningTable[]
+}
+
+// USER
+model User {
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  password     String
+  role         UserRole @default(FRONT_OF_HOUSE)
+  isActive     Boolean  @default(true)
+
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+
+  createdOrders Order[] @relation("OrderCreatedBy")
+  statusUpdates OrderStatusHistory[]
+  notifications Notification[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// MENU CATEGORY
+model MenuCategory {
+  id           String   @id @default(uuid())
+  name         String
+  description  String?
+
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+
+  menuItems    MenuItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([restaurantId, name])
+}
+
+// MENU ITEM
+model MenuItem {
+  id              String   @id @default(uuid())
+  name            String
+  description     String?
+  price           Decimal  @db.Decimal(10, 2)
+  imageUrl        String?
+  isAvailable     Boolean  @default(true)
+  prepTimeMinutes Int?
+
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+
+  categoryId String
+  category   MenuCategory @relation(fields: [categoryId], references: [id])
+
+  orderItems OrderItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// DINING TABLE
+model DiningTable {
+  id           String  @id @default(uuid())
+  tableNumber  Int
+  seats        Int?
+  isActive     Boolean @default(true)
+
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+
+  orders Order[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([restaurantId, tableNumber])
+}
+
+// ORDER
+model Order {
+  id          String      @id @default(uuid())
+  orderNumber String
+
+  customerName  String?
+  customerPhone String?
+
+  orderType OrderType
+  status    OrderStatus @default(PLACED)
+
+  paymentStatus PaymentStatus @default(UNPAID)
+  paymentMethod PaymentMethod?
+
+  subtotal Decimal @db.Decimal(10, 2)
+  tax      Decimal @default(0) @db.Decimal(10, 2)
+  discount Decimal @default(0) @db.Decimal(10, 2)
+  total    Decimal @db.Decimal(10, 2)
+
+  notes             String?
+  cancellationReason String?
+
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+
+  tableId String?
+  table   DiningTable? @relation(fields: [tableId], references: [id])
+
+  createdById String?
+  createdBy   User? @relation("OrderCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  items         OrderItem[]
+  statusHistory OrderStatusHistory[]
+  notifications Notification[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([restaurantId, orderNumber])
+  @@index([restaurantId, status])
+  @@index([createdAt])
+}
+
+// ORDER ITEMS
+model OrderItem {
+  id String @id @default(uuid())
+
+  itemName  String
+  unitPrice Decimal @db.Decimal(10, 2)
+  quantity  Int
+  lineTotal Decimal @db.Decimal(10, 2)
+
+  specialInstructions String?
+
+  orderId String
+  order   Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  menuItemId String?
+  menuItem   MenuItem? @relation(fields: [menuItemId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ORDER STATUS HISTORY
+model OrderStatusHistory {
+  id String @id @default(uuid())
+
+  fromStatus OrderStatus?
+  toStatus   OrderStatus
+  note       String?
+
+  orderId String
+  order   Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  changedById String?
+  changedBy   User? @relation(fields: [changedById], references: [id], onDelete: SetNull)
+
+  changedAt DateTime @default(now())
+
+  @@index([orderId, changedAt])
+}
+
+// NOTIFICATIONS
+model Notification {
+  id      String  @id @default(uuid())
+  title   String
+  message String
+  isRead  Boolean @default(false)
+
+  userId String
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  orderId String?
+  order   Order? @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, isRead])
 }
