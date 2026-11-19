@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 
 export default function Home() {
 
@@ -76,14 +77,14 @@ export default function Home() {
   ];
 
   const navigation = [
-    { name: "Home", icon: "⌂" },
-    { name: "New Order", icon: "+" },
-    { name: "All Orders", icon: "☷" },
-    { name: "Kitchen", icon: "♨" },
-    { name: "Tracking", icon: "♧" },
+    { name: "Home", href: "/", icon: "⌂" },
+    { name: "New Order", href: "/new-order", icon: "+" },
+    { name: "All Orders", href: "/all-orders", icon: "☷" },
+    { name: "Kitchen", href: "/kitchen", icon: "♨" },
+    { name: "Tracking", href: "/tracking", icon: "♧" },
   ];
 
-  const statusStyle = {
+  const statusStyle: Record<string, string> = {
     Preparing: "bg-orange-100 text-orange-600",
     Pending: "bg-blue-100 text-blue-600",
     Completed: "bg-green-100 text-green-600",
@@ -125,9 +126,9 @@ export default function Home() {
 
             {navigation.map((item) => (
 
-              <button
+              <Link
                 key={item.name}
-                onClick={() => setActivePage(item.name)}
+                href={item.href}
                 className={`w-full flex items-center gap-5 px-4 py-3 rounded-xl text-left transition-all ${
                   activePage === item.name
                     ? "bg-orange-500 text-white shadow-lg shadow-orange-500/20"
@@ -143,7 +144,7 @@ export default function Home() {
                   {item.name}
                 </span>
 
-              </button>
+              </Link>
 
             ))}
 
@@ -323,12 +324,12 @@ export default function Home() {
 
               </div>
 
-              <button
-                onClick={() => setActivePage("All Orders")}
+              <Link
+                href="/all-orders"
                 className="border border-orange-300 text-orange-600 px-4 py-2 rounded-full text-sm font-semibold hover:bg-orange-500 hover:text-white transition"
               >
                 View All →
-              </button>
+              </Link>
 
             </div>
 
