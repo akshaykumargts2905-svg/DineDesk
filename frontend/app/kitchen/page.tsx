@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import KitchenColumn from "@/components/kitchen/KitchenColumn";
 import { KitchenItem } from "@/components/kitchen/KitchenOrderCard";
 import { kitchenService, Order, ApiError } from "@/services/api";
+import { getNewKitchenOrderIds, playNotificationSound, speakNewOrderReceived } from "@/services/notificationSound";
 
 const formatBackendOrder = (order: Order): KitchenItem => ({
   id: order.id,
@@ -23,16 +24,27 @@ export default function KitchenPage() {
   const [readyOrders, setReadyOrders] = useState<KitchenItem[]>([]);
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
+  const isLoadingOrders = useRef(false);
 
   const loadKitchen = useCallback(async () => {
+    if (isLoadingOrders.current) return;
+    isLoadingOrders.current = true;
+
     try {
       const orders = await kitchenService.getOrders();
+      const newOrderIds = getNewKitchenOrderIds(orders.map((order) => order.id));
+      if (newOrderIds.length > 0) {
+        playNotificationSound();
+        speakNewOrderReceived();
+      }
       setPendingOrders(orders.filter((order) => order.status === "PLACED" || order.status === "ACCEPTED").map(formatBackendOrder));
       setPreparingOrders(orders.filter((order) => order.status === "PREPARING").map(formatBackendOrder));
       setReadyOrders(orders.filter((order) => order.status === "READY").map(formatBackendOrder));
       setErrorMessage("");
     } catch (err) {
       setErrorMessage(err instanceof ApiError ? err.message : "Could not load kitchen orders.");
+    } finally {
+      isLoadingOrders.current = false;
     }
   }, []);
 

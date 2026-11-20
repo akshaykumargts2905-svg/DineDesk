@@ -5,6 +5,7 @@ import DashboardLayout from "@/components/layout/DashboardLayout";
 import MenuItemCard from "@/components/orders/MenuItemCard";
 import OrderSummary, { CartItem } from "@/components/orders/OrderSummary";
 import { menuService, tableService, orderService, ApiError, MenuItem, DiningTable } from "@/services/api";
+import { playNotificationSound, speakOrderPlaced, unlockNotificationAudio } from "@/services/notificationSound";
 
 export default function NewOrderPage() {
   // Customer details
@@ -96,6 +97,7 @@ export default function NewOrderPage() {
       setErrorMessage("Select an active table before placing a dine-in order.");
       return;
     }
+    unlockNotificationAudio();
     setIsSubmitting(true);
     setErrorMessage("");
 
@@ -118,6 +120,8 @@ export default function NewOrderPage() {
       };
 
       const result = await orderService.create(orderPayload);
+      playNotificationSound();
+      speakOrderPlaced();
       setSuccessOrder(result.orderNumber);
       setCart([]);
     } catch (err) {
