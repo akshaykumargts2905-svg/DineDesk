@@ -22,13 +22,19 @@ enum OrderType {
   DELIVERY
 }
 
-// ORDER STATUS
+// ORDER STATUS — 6-step workflow
+// 1. PLACED     → Customer / Waiter creates order
+// 2. CONFIRMED  → Waiter confirms & sends to kitchen
+// 3. ACCEPTED   → Kitchen accepts
+// 4. PREPARING  → Kitchen starts cooking
+// 5. READY      → Kitchen marks ready (waiter notified)
+// 6. COMPLETED  → Waiter marks served
 enum OrderStatus {
   PLACED
+  CONFIRMED
   ACCEPTED
   PREPARING
   READY
-  SERVED
   COMPLETED
   CANCELLED
 }

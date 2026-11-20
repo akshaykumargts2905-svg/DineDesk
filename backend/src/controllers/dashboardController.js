@@ -16,10 +16,10 @@ export const getDashboardStats = async (req, res, next) => {
 
     const statusMap = {
       PLACED: 0,
+      CONFIRMED: 0,
       ACCEPTED: 0,
       PREPARING: 0,
       READY: 0,
-      SERVED: 0,
       COMPLETED: 0,
       CANCELLED: 0,
     };
@@ -73,11 +73,11 @@ export const getDashboardStats = async (req, res, next) => {
     return successResponse(res, 200, 'Dashboard statistics retrieved successfully', {
       totalOrders,
       todayOrders: todayOrdersCount,
-      pendingOrders: statusMap.PLACED,
+      placedOrders: statusMap.PLACED,
+      confirmedOrders: statusMap.CONFIRMED,
       acceptedOrders: statusMap.ACCEPTED,
       preparingOrders: statusMap.PREPARING,
       readyOrders: statusMap.READY,
-      servedOrders: statusMap.SERVED,
       completedOrders: statusMap.COMPLETED,
       cancelledOrders: statusMap.CANCELLED,
       totalSales,

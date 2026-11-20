@@ -8,8 +8,8 @@ export const getKitchenOrders = async (req, res, next) => {
     const restaurantId = req.user.restaurantId;
     const { status } = req.query;
 
-    // Kitchen typically cares about active preparation stages
-    const kitchenStatuses = status ? [status] : ['PLACED', 'ACCEPTED', 'PREPARING'];
+    // Kitchen sees: CONFIRMED (needs accept), ACCEPTED, PREPARING, READY
+    const kitchenStatuses = status ? [status] : ['CONFIRMED', 'ACCEPTED', 'PREPARING'];
 
     const orders = await prisma.order.findMany({
       where: {
@@ -95,7 +95,7 @@ export const acceptKitchenOrder = async (req, res, next) => {
       return errorResponse(
         res,
         400,
-        `Cannot accept order currently in '${order.status}' status`
+        `Cannot accept order: expected status CONFIRMED but got '${order.status}'`
       );
     }
 
