@@ -3,6 +3,12 @@
 import { useEffect, useState } from "react";
 import { notificationService } from "@/services/api";
 import { useAuth } from "@/components/auth/AuthProvider";
+import {
+  isNotificationSoundEnabled,
+  setNotificationSoundEnabled,
+  subscribeToNotificationSoundPreference,
+  unlockNotificationAudio,
+} from "@/services/notificationSound";
 
 interface HeaderProps {
   title: string;
@@ -13,6 +19,24 @@ interface HeaderProps {
 export default function Header({ title, subtitle, onMenuClick }: HeaderProps) {
   const { user } = useAuth();
   const [unreadCount, setUnreadCount] = useState(0);
+  const [soundEnabled, setSoundEnabled] = useState(true);
+
+  useEffect(() => {
+    const syncSoundPreference = () => setSoundEnabled(isNotificationSoundEnabled());
+    syncSoundPreference();
+    const unsubscribe = subscribeToNotificationSoundPreference(syncSoundPreference);
+    const unlockOnInteraction = () => {
+      if (isNotificationSoundEnabled()) unlockNotificationAudio();
+    };
+    window.addEventListener("pointerdown", unlockOnInteraction);
+    window.addEventListener("keydown", unlockOnInteraction);
+
+    return () => {
+      unsubscribe();
+      window.removeEventListener("pointerdown", unlockOnInteraction);
+      window.removeEventListener("keydown", unlockOnInteraction);
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -64,6 +88,21 @@ export default function Header({ title, subtitle, onMenuClick }: HeaderProps) {
           <span>{user?.restaurant?.name || "Restaurant"}</span>
           <span className="text-gray-400 text-xs">▼</span>
         </div>
+
+        <button
+          type="button"
+          onClick={() => {
+            const nextEnabled = !soundEnabled;
+            setNotificationSoundEnabled(nextEnabled);
+            setSoundEnabled(nextEnabled);
+          }}
+          aria-pressed={soundEnabled}
+          aria-label={`Notification sound ${soundEnabled ? "on" : "off"}`}
+          className="px-3 py-2 rounded-full bg-white shadow-sm border border-gray-100 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition"
+          title="Toggle notification sound"
+        >
+          {soundEnabled ? "Sound ON" : "Sound OFF"}
+        </button>
 
         {/* Notifications */}
         <button

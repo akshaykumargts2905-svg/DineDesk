@@ -124,6 +124,14 @@ export default function AllOrdersPage() {
       ),
     },
     {
+      header: "Table",
+      render: (row: Order) => (
+        <span className="text-gray-600 font-medium">
+          {row.orderType === "DINE_IN" && row.table ? `Table ${row.table.tableNumber}` : "-"}
+        </span>
+      ),
+    },
+    {
       header: "Items",
       render: (row: Order) => (
         <span className="text-gray-600 font-medium">
