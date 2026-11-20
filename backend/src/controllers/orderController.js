@@ -378,11 +378,14 @@ export const updateOrderStatus = async (req, res, next) => {
     }
 
     // Role-based restrictions on status updates
-    if (req.user.role === 'KITCHEN_STAFF') {
-      const allowedKitchen = ['ACCEPTED', 'PREPARING', 'READY'];
-      if (!allowedKitchen.includes(status)) {
-        return errorResponse(res, 403, 'Kitchen staff can only set status to ACCEPTED, PREPARING, or READY');
-      }
+    const { ROLE_ALLOWED_STATUSES } = await import('../utils/orderWorkflow.js');
+    const roleAllowed = ROLE_ALLOWED_STATUSES[req.user.role];
+    if (roleAllowed && !roleAllowed.includes(status)) {
+      return errorResponse(
+        res,
+        403,
+        `Your role (${req.user.role}) is not permitted to set status to '${status}'`
+      );
     }
 
     // Validate status transition
