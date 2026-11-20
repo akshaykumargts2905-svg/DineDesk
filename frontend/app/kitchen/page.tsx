@@ -1,159 +1,82 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import KitchenColumn from "@/components/kitchen/KitchenColumn";
 import { KitchenItem } from "@/components/kitchen/KitchenOrderCard";
-import { kitchenService, MOCK_KITCHEN_ORDERS } from "@/services/api";
+import { kitchenService, Order, ApiError } from "@/services/api";
+
+const formatBackendOrder = (order: Order): KitchenItem => ({
+  id: order.id,
+  orderNumber: order.orderNumber,
+  status: order.status,
+  itemsText: order.items.map((item) => `${item.quantity} × ${item.itemName}`).join(", ") || "Menu items",
+  itemsList: order.items.map((item) => ({ name: item.itemName, qty: item.quantity })),
+  qty: order.items.reduce((sum, item) => sum + item.quantity, 0),
+  time: new Date(order.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+  specialInstructions: order.items.map((item) => item.specialInstructions).filter(Boolean).join(" · ") || order.notes || undefined,
+});
 
 export default function KitchenPage() {
-  const [pendingOrders, setPendingOrders] = useState<KitchenItem[]>(
-    MOCK_KITCHEN_ORDERS.pending
-  );
-  const [preparingOrders, setPreparingOrders] = useState<KitchenItem[]>(
-    MOCK_KITCHEN_ORDERS.preparing
-  );
-  const [readyOrders, setReadyOrders] = useState<KitchenItem[]>(
-    MOCK_KITCHEN_ORDERS.ready
-  );
-
+  const [pendingOrders, setPendingOrders] = useState<KitchenItem[]>([]);
+  const [preparingOrders, setPreparingOrders] = useState<KitchenItem[]>([]);
+  const [readyOrders, setReadyOrders] = useState<KitchenItem[]>([]);
   const [loadingId, setLoadingId] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState("");
 
-  // Load kitchen orders
-  useEffect(() => {
-    async function loadKitchen() {
-      try {
-        const data = await kitchenService.getOrders();
-        if (data && typeof data === "object" && !Array.isArray(data)) {
-          if (data.pending) setPendingOrders(data.pending);
-          if (data.preparing) setPreparingOrders(data.preparing);
-          if (data.ready) setReadyOrders(data.ready);
-        } else if (Array.isArray(data)) {
-          // Format backend array into 3 columns
-          const pending = data
-            .filter((o: any) => o.status === "PLACED" || o.status === "ACCEPTED")
-            .map(formatBackendOrder);
-          const preparing = data
-            .filter((o: any) => o.status === "PREPARING")
-            .map(formatBackendOrder);
-          const ready = data
-            .filter((o: any) => o.status === "READY")
-            .map(formatBackendOrder);
-
-          if (pending.length > 0 || preparing.length > 0 || ready.length > 0) {
-            setPendingOrders(pending);
-            setPreparingOrders(preparing);
-            setReadyOrders(ready);
-          }
-        }
-      } catch (err) {
-        console.log("Using local kitchen mock state", err);
-      }
+  const loadKitchen = useCallback(async () => {
+    try {
+      const orders = await kitchenService.getOrders();
+      setPendingOrders(orders.filter((order) => order.status === "PLACED" || order.status === "ACCEPTED").map(formatBackendOrder));
+      setPreparingOrders(orders.filter((order) => order.status === "PREPARING").map(formatBackendOrder));
+      setReadyOrders(orders.filter((order) => order.status === "READY").map(formatBackendOrder));
+      setErrorMessage("");
+    } catch (err) {
+      setErrorMessage(err instanceof ApiError ? err.message : "Could not load kitchen orders.");
     }
-    loadKitchen();
   }, []);
 
-  const formatBackendOrder = (o: any): KitchenItem => ({
-    id: o.id,
-    orderNumber: o.orderNumber,
-    itemsText:
-      o.items?.map((i: any) => i.itemName).join(", ") || "Menu Items",
-    qty: o.items?.reduce((sum: number, i: any) => sum + i.quantity, 0) || 1,
-    time: "Just now",
-    specialInstructions: o.notes || undefined,
-    imageUrl:
-      o.items?.[0]?.menuItem?.imageUrl ||
-      "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=300",
-  });
+  useEffect(() => {
+    const initialLoad = window.setTimeout(() => void loadKitchen(), 0);
+    const interval = window.setInterval(loadKitchen, 30000);
+    return () => { window.clearTimeout(initialLoad); window.clearInterval(interval); };
+  }, [loadKitchen]);
 
-  // Action: Start Preparing (Pending -> Preparing)
   const handleStartPrep = async (orderId: string) => {
     setLoadingId(orderId);
+    setErrorMessage("");
     try {
+      const order = pendingOrders.find((item) => item.id === orderId);
+      if (order?.status === "PLACED") await kitchenService.accept(orderId);
       await kitchenService.startPrep(orderId);
-    } catch {}
-
-    const orderToMove = pendingOrders.find((o) => o.id === orderId);
-    if (orderToMove) {
-      setPendingOrders((prev) => prev.filter((o) => o.id !== orderId));
-      setPreparingOrders((prev) => [
-        { ...orderToMove, time: "Just now" },
-        ...prev,
-      ]);
+      await loadKitchen();
+    } catch (err) {
+      setErrorMessage(err instanceof ApiError ? err.message : "Could not start preparation.");
+    } finally {
+      setLoadingId(null);
     }
-    setLoadingId(null);
   };
 
-  // Action: Mark Ready (Preparing -> Ready)
   const handleMarkReady = async (orderId: string) => {
     setLoadingId(orderId);
+    setErrorMessage("");
     try {
       await kitchenService.markReady(orderId);
-    } catch {}
-
-    const orderToMove = preparingOrders.find((o) => o.id === orderId);
-    if (orderToMove) {
-      setPreparingOrders((prev) => prev.filter((o) => o.id !== orderId));
-      setReadyOrders((prev) => [
-        { ...orderToMove, time: "Just now" },
-        ...prev,
-      ]);
+      await loadKitchen();
+    } catch (err) {
+      setErrorMessage(err instanceof ApiError ? err.message : "Could not mark order ready.");
+    } finally {
+      setLoadingId(null);
     }
-    setLoadingId(null);
-  };
-
-  // Action: Serve Order (Ready -> Served/Removed from Kitchen)
-  const handleServeOrder = async (orderId: string) => {
-    setLoadingId(orderId);
-    try {
-      await kitchenService.serveOrder(orderId);
-    } catch {}
-
-    setReadyOrders((prev) => prev.filter((o) => o.id !== orderId));
-    setLoadingId(null);
   };
 
   return (
-    <DashboardLayout
-      title="Kitchen"
-      subtitle="Manage kitchen orders and update status"
-    >
+    <DashboardLayout title="Kitchen" subtitle="Manage kitchen orders and update status">
+      {errorMessage && <p role="alert" className="mb-4 text-sm text-red-600">{errorMessage}</p>}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-start">
-        {/* Column 1: Pending Orders */}
-        <KitchenColumn
-          title="Pending Orders"
-          count={pendingOrders.length}
-          theme="orange"
-          orders={pendingOrders}
-          actionLabel="Start Preparing"
-          actionColor="orange"
-          onAction={handleStartPrep}
-          loadingId={loadingId}
-        />
-
-        {/* Column 2: Preparing Orders */}
-        <KitchenColumn
-          title="Preparing Orders"
-          count={preparingOrders.length}
-          theme="navy"
-          orders={preparingOrders}
-          actionLabel="Mark Ready"
-          actionColor="blue"
-          onAction={handleMarkReady}
-          loadingId={loadingId}
-        />
-
-        {/* Column 3: Ready Orders */}
-        <KitchenColumn
-          title="Ready Orders"
-          count={readyOrders.length}
-          theme="green"
-          orders={readyOrders}
-          actionLabel="Serve Order"
-          actionColor="green"
-          onAction={handleServeOrder}
-          loadingId={loadingId}
-        />
+        <KitchenColumn title="Pending Orders" count={pendingOrders.length} theme="orange" orders={pendingOrders} actionLabel="Start Preparing" actionColor="orange" onAction={handleStartPrep} loadingId={loadingId} />
+        <KitchenColumn title="Preparing Orders" count={preparingOrders.length} theme="navy" orders={preparingOrders} actionLabel="Mark Ready" actionColor="blue" onAction={handleMarkReady} loadingId={loadingId} />
+        <KitchenColumn title="Ready Orders" count={readyOrders.length} theme="green" orders={readyOrders} actionColor="green" />
       </div>
     </DashboardLayout>
   );

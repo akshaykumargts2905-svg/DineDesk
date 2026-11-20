@@ -118,7 +118,7 @@ export const deleteMyRestaurant = async (req, res, next) => {
       await tx.restaurant.delete({
         where: { id: restaurantId },
       });
-    });
+    }, { timeout: 30000, maxWait: 10000 });
 
     return successResponse(res, 200, 'Restaurant and all associated records deleted successfully');
   } catch (error) {

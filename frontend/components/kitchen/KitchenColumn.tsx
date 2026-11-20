@@ -7,9 +7,9 @@ interface KitchenColumnProps {
   count: number;
   theme: "orange" | "navy" | "green";
   orders: KitchenItem[];
-  actionLabel: string;
+  actionLabel?: string;
   actionColor: "orange" | "blue" | "green";
-  onAction: (orderId: string) => void;
+  onAction?: (orderId: string) => void;
   loadingId?: string | null;
 }
 

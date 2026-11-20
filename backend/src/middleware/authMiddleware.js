@@ -14,7 +14,10 @@ export const authenticate = async (req, res, next) => {
       return errorResponse(res, 401, 'Authentication token required');
     }
 
-    const secret = process.env.JWT_SECRET || 'dinedesk_jwt_secret_key_2026_super_secure';
+    if (!process.env.JWT_SECRET) {
+      return errorResponse(res, 500, 'JWT_SECRET is not configured');
+    }
+    const secret = process.env.JWT_SECRET;
     let decoded;
 
     try {

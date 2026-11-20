@@ -38,7 +38,13 @@ export const trackOrderById = async (req, res, next) => {
     const restaurantId = req.user.restaurantId;
 
     const order = await prisma.order.findFirst({
-      where: { id, restaurantId },
+      where: {
+        restaurantId,
+        OR: [
+          { id },
+          { orderNumber: id },
+        ],
+      },
       include: {
         table: true,
         items: true,
@@ -70,7 +76,13 @@ export const markOrderServed = async (req, res, next) => {
     const { note } = req.body;
 
     const order = await prisma.order.findFirst({
-      where: { id, restaurantId },
+      where: {
+        restaurantId,
+        OR: [
+          { id },
+          { orderNumber: id },
+        ],
+      },
     });
 
     if (!order) {
@@ -87,14 +99,14 @@ export const markOrderServed = async (req, res, next) => {
 
     const updated = await prisma.$transaction(async (tx) => {
       const updatedOrder = await tx.order.update({
-        where: { id },
+        where: { id: order.id },
         data: { status: 'SERVED' },
         include: { items: true, table: true },
       });
 
       await tx.orderStatusHistory.create({
         data: {
-          orderId: id,
+          orderId: order.id,
           fromStatus: order.status,
           toStatus: 'SERVED',
           note: note ? note.trim() : 'Order served to customer',
@@ -118,7 +130,13 @@ export const completeOrder = async (req, res, next) => {
     const { note, paymentStatus = 'PAID', paymentMethod } = req.body;
 
     const order = await prisma.order.findFirst({
-      where: { id, restaurantId },
+      where: {
+        restaurantId,
+        OR: [
+          { id },
+          { orderNumber: id },
+        ],
+      },
     });
 
     if (!order) {
@@ -135,7 +153,7 @@ export const completeOrder = async (req, res, next) => {
 
     const updated = await prisma.$transaction(async (tx) => {
       const updatedOrder = await tx.order.update({
-        where: { id },
+        where: { id: order.id },
         data: {
           status: 'COMPLETED',
           ...(paymentStatus && { paymentStatus }),
@@ -146,7 +164,7 @@ export const completeOrder = async (req, res, next) => {
 
       await tx.orderStatusHistory.create({
         data: {
-          orderId: id,
+          orderId: order.id,
           fromStatus: order.status,
           toStatus: 'COMPLETED',
           note: note ? note.trim() : 'Order completed and finalized',

@@ -1,13 +1,6 @@
 "use client";
 
-interface MenuItem {
-  id: string;
-  name: string;
-  price: number;
-  imageUrl?: string;
-  category?: string;
-  isAvailable?: boolean;
-}
+import type { MenuItem } from "@/services/api";
 
 interface MenuItemCardProps {
   item: MenuItem;

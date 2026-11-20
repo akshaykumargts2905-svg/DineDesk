@@ -6,27 +6,27 @@ interface OrderItem {
   id?: string;
   itemName: string;
   quantity: number;
-  unitPrice: number;
-  lineTotal: number;
+  unitPrice: number | string;
+  lineTotal: number | string;
 }
 
 interface OrderDetailsProps {
   order: {
     id: string;
     orderNumber?: string;
-    customerName?: string;
-    customerPhone?: string;
+    customerName?: string | null;
+    customerPhone?: string | null;
     orderType: string;
     createdAt?: string;
     status: string;
-    total: number;
-    subtotal?: number;
-    tax?: number;
-    discount?: number;
-    notes?: string;
-    table?: string;
+  total: number | string;
+    subtotal?: number | string;
+    tax?: number | string;
+    discount?: number | string;
+    notes?: string | null;
+    table?: string | { tableNumber: number } | null;
     itemList?: OrderItem[];
-    items?: string;
+    items?: OrderItem[] | string;
   };
   onClose: () => void;
   onStatusChange?: (newStatus: string) => void;
@@ -37,7 +37,7 @@ export default function OrderDetails({
   onClose,
   onStatusChange,
 }: OrderDetailsProps) {
-  const items = order.itemList || [];
+  const items = order.itemList || (Array.isArray(order.items) ? order.items : []);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
@@ -109,14 +109,14 @@ export default function OrderDetails({
                       </span>
                     </div>
                     <span className="font-bold text-gray-900">
-                      ₹{item.lineTotal || item.unitPrice * item.quantity}
+                      ₹{item.lineTotal || Number(item.unitPrice) * item.quantity}
                     </span>
                   </div>
                 ))}
               </div>
             ) : (
               <p className="text-sm text-gray-500 italic p-3 bg-gray-50 rounded-xl">
-                {order.items || "Items information"}
+                {typeof order.items === "string" ? order.items : "No item details"}
               </p>
             )}
           </div>

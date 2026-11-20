@@ -1,457 +1,209 @@
-/**
- * API Service for DineDesk Restaurant Management System
- * Handles communication with the backend REST APIs.
- */
+export const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+export interface ApiResponse<T> {
+  success: boolean;
+  message: string;
+  data?: T;
+  pagination?: { total: number; page: number; limit: number; totalPages: number };
+}
 
-// Helper to get auth header
-const getAuthHeaders = (): Record<string, string> => {
-  if (typeof window === 'undefined') return { 'Content-Type': 'application/json' };
-  const token = localStorage.getItem('dinedesk_token');
-  return {
-    'Content-Type': 'application/json',
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  };
-};
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: "RESTAURANT_ADMIN" | "MANAGER" | "FRONT_OF_HOUSE" | "KITCHEN_STAFF";
+  restaurantId: string;
+  restaurant?: { id: string; name: string; address?: string | null; phone?: string | null };
+}
 
-// Generic fetch wrapper
-async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const url = `${API_BASE_URL}${endpoint}`;
-  const headers = {
-    ...getAuthHeaders(),
-    ...(options.headers || {}),
-  };
-
-  try {
-    const res = await fetch(url, { ...options, headers });
-    const data = await res.json();
-    return data;
-  } catch (error) {
-    console.warn(`API call failed for ${endpoint}:`, error);
-    throw error;
+export class ApiError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
   }
 }
 
-// Default fallback data for UI stability
-export const MOCK_MENU_ITEMS = [
-  {
-    id: "item-1",
-    name: "Paneer Tikka",
-    category: "Starters",
-    price: 220,
-    imageUrl: "https://images.unsplash.com/photo-1599488615731-7e5c2823ff28?w=500&auto=format&fit=crop&q=80",
-    isAvailable: true,
-  },
-  {
-    id: "item-2",
-    name: "Butter Chicken",
-    category: "Main Course",
-    price: 320,
-    imageUrl: "https://images.unsplash.com/photo-1603894584373-5ac82b2ae398?w=500&auto=format&fit=crop&q=80",
-    isAvailable: true,
-  },
-  {
-    id: "item-3",
-    name: "Veg Biryani",
-    category: "Main Course",
-    price: 280,
-    imageUrl: "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=500&auto=format&fit=crop&q=80",
-    isAvailable: true,
-  },
-  {
-    id: "item-4",
-    name: "Pizza",
-    category: "Main Course",
-    price: 350,
-    imageUrl: "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=500&auto=format&fit=crop&q=80",
-    isAvailable: true,
-  },
-  {
-    id: "item-5",
-    name: "Crispy Corn",
-    category: "Starters",
-    price: 180,
-    imageUrl: "https://images.unsplash.com/photo-1541592106381-b31e9677c0e5?w=500&auto=format&fit=crop&q=80",
-    isAvailable: true,
-  },
-  {
-    id: "item-6",
-    name: "Cold Coffee",
-    category: "Beverages",
-    price: 120,
-    imageUrl: "https://images.unsplash.com/photo-1517701604599-bb29b565090c?w=500&auto=format&fit=crop&q=80",
-    isAvailable: true,
-  },
-  {
-    id: "item-7",
-    name: "Gulab Jamun",
-    category: "Desserts",
-    price: 110,
-    imageUrl: "https://images.unsplash.com/photo-1589301760014-d929f3979dbc?w=500&auto=format&fit=crop&q=80",
-    isAvailable: true,
-  },
-  {
-    id: "item-8",
-    name: "Fresh Lime Soda",
-    category: "Beverages",
-    price: 90,
-    imageUrl: "https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?w=500&auto=format&fit=crop&q=80",
-    isAvailable: true,
-  },
-];
+export const getToken = () =>
+  typeof window === "undefined" ? null : localStorage.getItem("dinedesk_token");
 
-export const MOCK_ORDERS = [
-  {
-    id: "ORD101",
-    orderNumber: "ORD101",
-    customerName: "Rahul Sharma",
-    customerPhone: "9876543210",
-    items: "2 Items",
-    orderType: "Dine In",
-    orderTypeEnum: "DINE_IN",
-    createdAt: "19 Nov, 2:15 PM",
-    total: 540,
-    subtotal: 514.28,
-    tax: 25.72,
-    discount: 0,
-    status: "Preparing",
-    statusEnum: "PREPARING",
-    table: "T1",
-    tableId: "t1",
-    notes: "Less spicy please",
-    itemList: [
-      { id: "oi-1", itemName: "Paneer Tikka", unitPrice: 220, quantity: 1, lineTotal: 220 },
-      { id: "oi-2", itemName: "Butter Chicken", unitPrice: 320, quantity: 1, lineTotal: 320 },
-    ],
-    timeline: [
-      { title: "Order Placed", time: "2:15 PM", status: "completed" },
-      { title: "In Preparation", time: "2:17 PM", status: "completed" },
-      { title: "Ready for Pickup", time: "2:20 PM", status: "current" },
-      { title: "Served", time: "Pending", status: "upcoming" },
-    ],
-  },
-  {
-    id: "ORD102",
-    orderNumber: "ORD102",
-    customerName: "Amit Kumar",
-    customerPhone: "9812345678",
-    items: "1 Item",
-    orderType: "Takeaway",
-    orderTypeEnum: "TAKEAWAY",
-    createdAt: "19 Nov, 1:50 PM",
-    total: 280,
-    subtotal: 266.66,
-    tax: 13.34,
-    discount: 0,
-    status: "Pending",
-    statusEnum: "PLACED",
-    table: "-",
-    notes: "Pack well with cutlery",
-    itemList: [
-      { id: "oi-3", itemName: "Veg Biryani", unitPrice: 280, quantity: 1, lineTotal: 280 },
-    ],
-    timeline: [
-      { title: "Order Placed", time: "1:50 PM", status: "completed" },
-      { title: "In Preparation", time: "Pending", status: "upcoming" },
-      { title: "Ready for Pickup", time: "Pending", status: "upcoming" },
-      { title: "Served", time: "Pending", status: "upcoming" },
-    ],
-  },
-  {
-    id: "ORD103",
-    orderNumber: "ORD103",
-    customerName: "Priya Singh",
-    customerPhone: "9988776655",
-    items: "3 Items",
-    orderType: "Delivery",
-    orderTypeEnum: "DELIVERY",
-    createdAt: "19 Nov, 1:30 PM",
-    total: 760,
-    subtotal: 723.8,
-    tax: 36.2,
-    discount: 0,
-    status: "Served",
-    statusEnum: "SERVED",
-    table: "-",
-    notes: "Deliver to Flat 402",
-    itemList: [
-      { id: "oi-4", itemName: "Pizza", unitPrice: 350, quantity: 1, lineTotal: 350 },
-      { id: "oi-5", itemName: "Butter Chicken", unitPrice: 320, quantity: 1, lineTotal: 320 },
-      { id: "oi-6", itemName: "Fresh Lime Soda", unitPrice: 90, quantity: 1, lineTotal: 90 },
-    ],
-    timeline: [
-      { title: "Order Placed", time: "1:30 PM", status: "completed" },
-      { title: "In Preparation", time: "1:35 PM", status: "completed" },
-      { title: "Ready for Pickup", time: "1:45 PM", status: "completed" },
-      { title: "Served", time: "1:55 PM", status: "completed" },
-    ],
-  },
-  {
-    id: "ORD104",
-    orderNumber: "ORD104",
-    customerName: "Neha Verma",
-    customerPhone: "9765432109",
-    items: "2 Items",
-    orderType: "Dine In",
-    orderTypeEnum: "DINE_IN",
-    createdAt: "19 Nov, 1:20 PM",
-    total: 420,
-    subtotal: 400,
-    tax: 20,
-    discount: 0,
-    status: "Completed",
-    statusEnum: "COMPLETED",
-    table: "T3",
-    tableId: "t3",
-    notes: "Paid by cash",
-    itemList: [
-      { id: "oi-7", itemName: "Crispy Corn", unitPrice: 180, quantity: 1, lineTotal: 180 },
-      { id: "oi-8", itemName: "Veg Biryani", unitPrice: 280, quantity: 1, lineTotal: 280 },
-    ],
-    timeline: [
-      { title: "Order Placed", time: "1:20 PM", status: "completed" },
-      { title: "In Preparation", time: "1:25 PM", status: "completed" },
-      { title: "Ready for Pickup", time: "1:35 PM", status: "completed" },
-      { title: "Served & Paid", time: "1:45 PM", status: "completed" },
-    ],
-  },
-];
+export function setSession(token: string, user: User) {
+  localStorage.setItem("dinedesk_token", token);
+  localStorage.setItem("dinedesk_user", JSON.stringify(user));
+}
 
-export const MOCK_KITCHEN_ORDERS = {
-  pending: [
-    {
-      id: "ORD105",
-      orderNumber: "ORD105",
-      itemsText: "Pizza, Pasta",
-      itemsList: [
-        { name: "Pizza", qty: 1 },
-        { name: "Pasta", qty: 1 },
-      ],
-      qty: 2,
-      time: "2 min ago",
-      specialInstructions: "Extra cheese on pizza",
-      imageUrl: "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=500&auto=format&fit=crop&q=80",
-    },
-    {
-      id: "ORD106",
-      orderNumber: "ORD106",
-      itemsText: "Paneer Tikka, Naan",
-      itemsList: [
-        { name: "Paneer Tikka", qty: 1 },
-        { name: "Butter Naan", qty: 2 },
-      ],
-      qty: 1,
-      time: "3 min ago",
-      specialInstructions: "Make tikka crispy",
-      imageUrl: "https://images.unsplash.com/photo-1599488615731-7e5c2823ff28?w=500&auto=format&fit=crop&q=80",
-    },
-  ],
-  preparing: [
-    {
-      id: "ORD107",
-      orderNumber: "ORD107",
-      itemsText: "Butter Chicken, Rice",
-      itemsList: [
-        { name: "Butter Chicken", qty: 1 },
-        { name: "Jeera Rice", qty: 1 },
-      ],
-      qty: 1,
-      time: "5 min ago",
-      specialInstructions: "Medium spicy gravy",
-      imageUrl: "https://images.unsplash.com/photo-1603894584373-5ac82b2ae398?w=500&auto=format&fit=crop&q=80",
-    },
-    {
-      id: "ORD108",
-      orderNumber: "ORD108",
-      itemsText: "Veg Biryani",
-      itemsList: [
-        { name: "Veg Biryani", qty: 1 },
-      ],
-      qty: 1,
-      time: "6 min ago",
-      specialInstructions: "Extra raita included",
-      imageUrl: "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=500&auto=format&fit=crop&q=80",
-    },
-  ],
-  ready: [
-    {
-      id: "ORD109",
-      orderNumber: "ORD109",
-      itemsText: "Pizza, Cold Coffee",
-      itemsList: [
-        { name: "Pizza", qty: 1 },
-        { name: "Cold Coffee", qty: 1 },
-      ],
-      qty: 1,
-      time: "7 min ago",
-      specialInstructions: "Ready for serving at Table 4",
-      imageUrl: "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=500&auto=format&fit=crop&q=80",
-    },
-  ],
+export function clearSession() {
+  localStorage.removeItem("dinedesk_token");
+  localStorage.removeItem("dinedesk_user");
+}
+
+export async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  const token = getToken();
+  const headers = new Headers(options.headers);
+  if (options.body && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      ...options,
+      headers,
+      cache: "no-store",
+    });
+  } catch {
+    throw new ApiError("Could not reach the DineDesk API. Check the backend connection.", 0);
+  }
+
+  const body = await response.json().catch(() => null);
+  if (!response.ok || body?.success === false) {
+    throw new ApiError(body?.message || `Request failed (${response.status})`, response.status);
+  }
+  return body as T;
+}
+
+async function data<T>(endpoint: string, options?: RequestInit): Promise<T> {
+  const response = await request<ApiResponse<T>>(endpoint, options);
+  if (response.data === undefined) return undefined as T;
+  return response.data;
+}
+
+const json = (method: string, payload?: unknown): RequestInit => ({
+  method,
+  ...(payload === undefined ? {} : { body: JSON.stringify(payload) }),
+});
+
+export const authService = {
+  login: (credentials: { email: string; password: string }) =>
+    data<{ token: string; user: User }>("/auth/login", json("POST", credentials)),
+  register: (payload: {
+    restaurantName: string;
+    address?: string;
+    phone?: string;
+    name: string;
+    email: string;
+    password: string;
+  }) => data<{ token: string; user: User }>("/auth/register", json("POST", payload)),
+  me: () => data<User>("/auth/me"),
+  logout: () => data<undefined>("/auth/logout", json("POST")),
 };
 
-// --- API Service Methods ---
+export interface MenuItem {
+  id: string;
+  name: string;
+  description?: string | null;
+  price: number | string;
+  imageUrl?: string | null;
+  isAvailable: boolean;
+  prepTimeMinutes?: number | null;
+  categoryId?: string;
+  category?: { id: string; name: string } | null;
+}
+export interface MenuCategory {
+  id: string;
+  name: string;
+  description?: string | null;
+  _count?: { menuItems: number };
+}
+export interface DiningTable { id: string; tableNumber: number; seats?: number | null; isActive: boolean }
+export interface OrderItem {
+  id: string;
+  itemName: string;
+  unitPrice: number | string;
+  quantity: number;
+  lineTotal: number | string;
+  specialInstructions?: string | null;
+}
+export interface Order {
+  id: string;
+  orderNumber: string;
+  customerName?: string | null;
+  customerPhone?: string | null;
+  orderType: "DINE_IN" | "TAKEAWAY" | "DELIVERY";
+  status: "PLACED" | "ACCEPTED" | "PREPARING" | "READY" | "SERVED" | "COMPLETED" | "CANCELLED";
+  paymentStatus: string;
+  paymentMethod?: string | null;
+  subtotal: number | string;
+  tax: number | string;
+  discount: number | string;
+  total: number | string;
+  notes?: string | null;
+  table?: { id: string; tableNumber: number } | null;
+  items: OrderItem[];
+  statusHistory?: { fromStatus?: string | null; toStatus: string; note?: string | null; changedAt: string }[];
+  createdAt: string;
+}
+
+const queryString = (params?: Record<string, string>) => {
+  const query = new URLSearchParams(params).toString();
+  return query ? `?${query}` : "";
+};
 
 export const orderService = {
-  // Get all orders with optional filter query
-  async getAll(params?: Record<string, string>) {
-    try {
-      const query = params ? '?' + new URLSearchParams(params).toString() : '';
-      const res = await request<any>(`/orders${query}`);
-      if (res?.success && res.data) {
-        return res.data;
-      }
-      return MOCK_ORDERS;
-    } catch {
-      return MOCK_ORDERS;
-    }
-  },
-
-  // Get single order by ID
-  async getById(id: string) {
-    try {
-      const res = await request<any>(`/orders/${id}`);
-      if (res?.success && res.data) {
-        return res.data;
-      }
-    } catch {}
-    return MOCK_ORDERS.find((o) => o.id === id || o.orderNumber === id) || MOCK_ORDERS[0];
-  },
-
-  // Create new order
-  async create(orderData: any) {
-    try {
-      const res = await request<any>('/orders', {
-        method: 'POST',
-        body: JSON.stringify(orderData),
-      });
-      return res;
-    } catch (err: any) {
-      return { success: true, message: 'Order placed locally', data: orderData };
-    }
-  },
-
-  // Update order status
-  async updateStatus(id: string, status: string, note?: string) {
-    try {
-      const res = await request<any>(`/orders/${id}/status`, {
-        method: 'PATCH',
-        body: JSON.stringify({ status, note }),
-      });
-      return res;
-    } catch (err: any) {
-      return { success: true, message: 'Status updated' };
-    }
-  },
-
-  // Cancel order
-  async cancel(id: string, cancellationReason: string) {
-    try {
-      const res = await request<any>(`/orders/${id}/cancel`, {
-        method: 'PATCH',
-        body: JSON.stringify({ cancellationReason }),
-      });
-      return res;
-    } catch (err: any) {
-      return { success: true, message: 'Order cancelled' };
-    }
-  },
+  getAll: (params?: Record<string, string>) => data<Order[]>(`/orders${queryString(params)}`),
+  list: (params?: Record<string, string>) => request<ApiResponse<Order[]>>(`/orders${queryString(params)}`),
+  getById: (id: string) => data<Order>(`/orders/${encodeURIComponent(id)}`),
+  create: (payload: unknown) => data<Order>("/orders", json("POST", payload)),
+  update: (id: string, payload: unknown) => data<Order>(`/orders/${id}`, json("PUT", payload)),
+  updateStatus: (id: string, status: string, note?: string) =>
+    data<Order>(`/orders/${id}/status`, json("PATCH", { status, note })),
+  cancel: (id: string, cancellationReason: string) =>
+    data<Order>(`/orders/${id}/cancel`, json("PATCH", { cancellationReason })),
+  getHistory: (id: string) => data<{ order: Pick<Order, "id" | "orderNumber" | "status">; history: NonNullable<Order["statusHistory"]> }>(`/orders/${id}/history`),
 };
 
 export const kitchenService = {
-  // Get kitchen orders
-  async getOrders() {
-    try {
-      const res = await request<any>('/kitchen/orders');
-      if (res?.success && Array.isArray(res.data)) {
-        return res.data;
-      }
-      return MOCK_KITCHEN_ORDERS;
-    } catch {
-      return MOCK_KITCHEN_ORDERS;
-    }
-  },
+  getOrders: () => data<Order[]>("/kitchen/orders"),
+  accept: (id: string) => data<Order>(`/kitchen/orders/${id}/accept`, json("PATCH", {})),
+  startPrep: (id: string) => data<Order>(`/kitchen/orders/${id}/start`, json("PATCH", {})),
+  markReady: (id: string) => data<Order>(`/kitchen/orders/${id}/ready`, json("PATCH", {})),
+  serveOrder: (id: string) => data<Order>(`/tracking/orders/${id}/served`, json("PATCH")),
+};
 
-  // Start preparation
-  async startPrep(id: string) {
-    try {
-      return await request<any>(`/kitchen/orders/${id}/start`, { method: 'PATCH' });
-    } catch {
-      return { success: true };
-    }
-  },
-
-  // Mark ready
-  async markReady(id: string) {
-    try {
-      return await request<any>(`/kitchen/orders/${id}/ready`, { method: 'PATCH' });
-    } catch {
-      return { success: true };
-    }
-  },
-
-  // Serve order
-  async serveOrder(id: string) {
-    try {
-      return await request<any>(`/tracking/orders/${id}/served`, { method: 'PATCH' });
-    } catch {
-      return { success: true };
-    }
-  },
+export const trackingService = {
+  getOrders: () => data<Order[]>("/tracking/orders"),
+  getById: (id: string) => data<Order>(`/tracking/orders/${encodeURIComponent(id)}`),
+  markServed: (id: string) => data<Order>(`/tracking/orders/${encodeURIComponent(id)}/served`, json("PATCH", {})),
+  complete: (id: string, paymentMethod: string) =>
+    data<Order>(`/tracking/orders/${encodeURIComponent(id)}/complete`, json("PATCH", { paymentStatus: "PAID", paymentMethod })),
 };
 
 export const menuService = {
-  // Get all menu items
-  async getItems() {
-    try {
-      const res = await request<any>('/menu');
-      if (res?.success && Array.isArray(res.data)) {
-        return res.data;
-      }
-      return MOCK_MENU_ITEMS;
-    } catch {
-      return MOCK_MENU_ITEMS;
-    }
-  },
-
-  // Get categories
-  async getCategories() {
-    try {
-      const res = await request<any>('/categories');
-      if (res?.success && Array.isArray(res.data)) {
-        return res.data;
-      }
-      return ['All', 'Starters', 'Main Course', 'Beverages', 'Desserts'];
-    } catch {
-      return ['All', 'Starters', 'Main Course', 'Beverages', 'Desserts'];
-    }
-  },
+  getItems: () => data<MenuItem[]>("/menu?isAvailable=true&limit=100"),
+  getAllItems: () => data<MenuItem[]>("/menu?limit=100"),
+  createItem: (payload: {
+    name: string;
+    description?: string;
+    price: number;
+    categoryId: string;
+    prepTimeMinutes?: number;
+    isAvailable: boolean;
+  }) => data<MenuItem>("/menu", json("POST", payload)),
+  setAvailability: (id: string, isAvailable: boolean) =>
+    data<MenuItem>(`/menu/${encodeURIComponent(id)}/availability`, json("PATCH", { isAvailable })),
+  getCategories: () => data<MenuCategory[]>("/categories"),
+  createCategory: (payload: { name: string; description?: string }) =>
+    data<MenuCategory>("/categories", json("POST", payload)),
 };
 
 export const tableService = {
-  // Get tables
-  async getTables() {
-    try {
-      const res = await request<any>('/tables');
-      if (res?.success && Array.isArray(res.data)) {
-        return res.data;
-      }
-      return [
-        { id: 't1', tableNumber: 1, seats: 4 },
-        { id: 't2', tableNumber: 2, seats: 2 },
-        { id: 't3', tableNumber: 3, seats: 6 },
-        { id: 't4', tableNumber: 4, seats: 4 },
-        { id: 't5', tableNumber: 5, seats: 8 },
-      ];
-    } catch {
-      return [
-        { id: 't1', tableNumber: 1, seats: 4 },
-        { id: 't2', tableNumber: 2, seats: 2 },
-        { id: 't3', tableNumber: 3, seats: 6 },
-        { id: 't4', tableNumber: 4, seats: 4 },
-        { id: 't5', tableNumber: 5, seats: 8 },
-      ];
-    }
-  },
+  getTables: () => data<DiningTable[]>("/tables?isActive=true"),
+  getAll: () => data<DiningTable[]>("/tables"),
+  create: (payload: { tableNumber: number; seats?: number; isActive: boolean }) =>
+    data<DiningTable>("/tables", json("POST", payload)),
+  setActive: (id: string, isActive: boolean) =>
+    data<DiningTable>(`/tables/${encodeURIComponent(id)}/status`, json("PATCH", { isActive })),
+};
+
+export const dashboardService = {
+  getStats: () => data<Record<string, number>>("/dashboard/stats"),
+  getRecentOrders: (limit = 5) => data<Order[]>(`/dashboard/recent-orders?limit=${limit}`),
+};
+
+export const notificationService = {
+  getAll: () => data<{ notifications: unknown[]; unreadCount: number }>("/notifications?limit=5"),
+  markAllRead: () => data<{ updatedCount: number }>("/notifications/read-all", json("PATCH")),
 };

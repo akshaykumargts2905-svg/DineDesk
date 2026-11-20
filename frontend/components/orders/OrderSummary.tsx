@@ -26,7 +26,8 @@ export default function OrderSummary({
   isSubmitting = false,
 }: OrderSummaryProps) {
   const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const total = subtotal; // If tax or discount needed, can easily calculate
+  const tax = Math.round(subtotal * 0.05 * 100) / 100;
+  const total = subtotal + tax;
 
   return (
     <div className="bg-white rounded-2xl p-5 md:p-6 shadow-sm border border-gray-100 flex flex-col justify-between h-full">
@@ -120,6 +121,10 @@ export default function OrderSummary({
           <div className="flex justify-between text-gray-500">
             <span>Subtotal</span>
             <span className="font-semibold text-gray-800">₹{subtotal}</span>
+          </div>
+          <div className="flex justify-between text-gray-500">
+            <span>Tax (5%)</span>
+            <span className="font-semibold text-gray-800">&#8377;{tax}</span>
           </div>
           <div className="flex justify-between text-base font-extrabold text-gray-900 pt-2 border-t border-dashed border-gray-200">
             <span>Total</span>

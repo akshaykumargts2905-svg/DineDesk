@@ -15,7 +15,7 @@ const router = express.Router();
 // All staff endpoints require authentication
 router.use(authenticate);
 
-router.post('/', authorizeRoles('RESTAURANT_ADMIN', 'MANAGER'), createStaff);
+router.post('/', authorizeRoles('RESTAURANT_ADMIN'), createStaff);
 router.get('/', authorizeRoles('RESTAURANT_ADMIN', 'MANAGER'), getAllStaff);
 router.get('/:id', authorizeRoles('RESTAURANT_ADMIN', 'MANAGER'), getStaffById);
 router.put('/:id', authorizeRoles('RESTAURANT_ADMIN', 'MANAGER'), updateStaff);

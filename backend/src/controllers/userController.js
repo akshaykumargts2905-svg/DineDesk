@@ -17,9 +17,9 @@ export const createStaff = async (req, res, next) => {
       return errorResponse(res, 400, `Invalid role. Allowed roles are: ${ALLOWED_ROLES.join(', ')}`);
     }
 
-    // Only RESTAURANT_ADMIN can create another RESTAURANT_ADMIN
-    if (role === 'RESTAURANT_ADMIN' && req.user.role !== 'RESTAURANT_ADMIN') {
-      return errorResponse(res, 403, 'Only Restaurant Admins can create another Admin account');
+    // Only RESTAURANT_ADMIN (Restaurant Owner) can create staff accounts
+    if (req.user.role !== 'RESTAURANT_ADMIN') {
+      return errorResponse(res, 403, 'Forbidden: Only Restaurant Admin (Owner) can create staff accounts');
     }
 
     if (password.length < 6) {
@@ -251,6 +251,10 @@ export const updateStaffStatus = async (req, res, next) => {
 
     if (!existingStaff) {
       return errorResponse(res, 404, 'Staff member not found');
+    }
+
+    if (existingStaff.role === 'RESTAURANT_ADMIN' && req.user.role !== 'RESTAURANT_ADMIN') {
+      return errorResponse(res, 403, 'Only Admins can change Admin account status');
     }
 
     const newStatus = typeof isActive === 'boolean' ? isActive : !existingStaff.isActive;

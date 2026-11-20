@@ -7,15 +7,16 @@ export interface KitchenItem {
   itemsList?: { name: string; qty: number }[];
   qty: number;
   time: string;
+  status: string;
   specialInstructions?: string;
   imageUrl?: string;
 }
 
 interface KitchenOrderCardProps {
   order: KitchenItem;
-  actionLabel: string;
+  actionLabel?: string;
   actionColor: "orange" | "blue" | "green";
-  onAction: (id: string) => void;
+  onAction?: (id: string) => void;
   isLoading?: boolean;
 }
 
@@ -73,13 +74,13 @@ export default function KitchenOrderCard({
       </div>
 
       {/* Action Button */}
-      <button
+      {actionLabel && onAction && <button
         onClick={() => onAction(order.id)}
         disabled={isLoading}
         className={`mt-4 w-full py-2.5 px-4 rounded-xl font-bold text-xs md:text-sm transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed ${buttonColorClasses}`}
       >
         {isLoading ? "Updating..." : actionLabel}
-      </button>
+      </button>}
     </div>
   );
 }

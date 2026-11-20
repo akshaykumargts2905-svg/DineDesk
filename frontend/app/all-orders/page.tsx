@@ -1,47 +1,59 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import StatusBadge from "@/components/common/StatusBadge";
 import SearchBar from "@/components/common/SearchBar";
 import FilterDropdown from "@/components/common/FilterDropdown";
 import DataTable from "@/components/common/DataTable";
 import OrderDetails from "@/components/orders/OrderDetails";
-import { orderService, MOCK_ORDERS } from "@/services/api";
+import { orderService, Order, ApiError } from "@/services/api";
+
+const label = (value = "") => value.toLowerCase().split("_").map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(" ");
+type OrderDetailsModel = Omit<Order, "table" | "orderType"> & { table?: string; orderType: string };
 
 export default function AllOrdersPage() {
-  const [orders, setOrders] = useState<any[]>(MOCK_ORDERS);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [typeFilter, setTypeFilter] = useState("ALL");
   const [isLoading, setIsLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalOrders, setTotalOrders] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
 
   // Modal states
-  const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
-  const [editingOrder, setEditingOrder] = useState<any | null>(null);
-  const [cancellingOrder, setCancellingOrder] = useState<any | null>(null);
+  const [selectedOrder, setSelectedOrder] = useState<OrderDetailsModel | null>(null);
+  const [editingOrder, setEditingOrder] = useState<Order | null>(null);
+  const [cancellingOrder, setCancellingOrder] = useState<Order | null>(null);
   const [cancelReason, setCancelReason] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
 
   // Fetch orders from backend
-  const fetchOrders = async () => {
+  const fetchOrders = useCallback(async (requestedPage = 1) => {
     setIsLoading(true);
     try {
-      const data = await orderService.getAll();
-      if (Array.isArray(data) && data.length > 0) {
-        setOrders(data);
-      } else {
-        setOrders(MOCK_ORDERS);
-      }
-    } catch {
-      setOrders(MOCK_ORDERS);
+      const params: Record<string, string> = { page: String(requestedPage), limit: "20" };
+      if (statusFilter !== "ALL") params.status = statusFilter;
+      if (typeFilter !== "ALL") params.orderType = typeFilter;
+      if (searchTerm.trim()) params.search = searchTerm.trim();
+      const response = await orderService.list(params);
+      setOrders(response.data || []);
+      setCurrentPage(response.pagination?.page || requestedPage);
+      setTotalOrders(response.pagination?.total || 0);
+      setTotalPages(Math.max(1, response.pagination?.totalPages || 1));
+      setErrorMessage("");
+    } catch (err) {
+      setErrorMessage(err instanceof ApiError ? err.message : "Could not load orders.");
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [statusFilter, typeFilter, searchTerm]);
 
   useEffect(() => {
-    fetchOrders();
-  }, []);
+    const timer = window.setTimeout(() => void fetchOrders(1), 300);
+    return () => window.clearTimeout(timer);
+  }, [fetchOrders]);
 
   // Filter logic
   const filteredOrders = orders.filter((order) => {
@@ -52,13 +64,11 @@ export default function AllOrdersPage() {
 
     const matchesStatus =
       statusFilter === "ALL" ||
-      (order.status || "").toLowerCase() === statusFilter.toLowerCase() ||
-      (order.statusEnum || "").toLowerCase() === statusFilter.toLowerCase();
+      order.status === statusFilter;
 
     const matchesType =
       typeFilter === "ALL" ||
-      (order.orderType || "").toLowerCase() === typeFilter.toLowerCase() ||
-      (order.orderTypeEnum || "").toLowerCase() === typeFilter.toLowerCase();
+      order.orderType === typeFilter;
 
     return matchesSearch && matchesStatus && matchesType;
   });
@@ -67,12 +77,18 @@ export default function AllOrdersPage() {
   const handleSaveEdit = async () => {
     if (!editingOrder) return;
     try {
-      setOrders((prev) =>
-        prev.map((o) => (o.id === editingOrder.id ? { ...o, ...editingOrder } : o))
-      );
+      const updated = await orderService.update(editingOrder.id, {
+        customerName: editingOrder.customerName,
+        customerPhone: editingOrder.customerPhone,
+      });
+      const result = updated.status === editingOrder.status
+        ? updated
+        : await orderService.updateStatus(updated.id, editingOrder.status);
+      setOrders((prev) => prev.map((o) => o.id === result.id ? result : o));
       setEditingOrder(null);
+      setErrorMessage("");
     } catch (err) {
-      console.error(err);
+      setErrorMessage(err instanceof ApiError ? err.message : "Could not save order changes.");
     }
   };
 
@@ -80,25 +96,20 @@ export default function AllOrdersPage() {
   const handleConfirmCancel = async () => {
     if (!cancellingOrder) return;
     try {
-      await orderService.cancel(cancellingOrder.id, cancelReason || "Customer request");
-      setOrders((prev) =>
-        prev.map((o) =>
-          o.id === cancellingOrder.id
-            ? { ...o, status: "Cancelled", statusEnum: "CANCELLED" }
-            : o
-        )
-      );
+      const updated = await orderService.cancel(cancellingOrder.id, cancelReason || "Customer request");
+      setOrders((prev) => prev.map((o) => o.id === updated.id ? updated : o));
       setCancellingOrder(null);
       setCancelReason("");
+      setErrorMessage("");
     } catch (err) {
-      console.error(err);
+      setErrorMessage(err instanceof ApiError ? err.message : "Could not cancel the order.");
     }
   };
 
   const columns = [
     {
       header: "Order ID",
-      render: (row: any) => (
+      render: (row: Order) => (
         <span className="font-bold text-gray-900">
           #{row.orderNumber || row.id}
         </span>
@@ -106,7 +117,7 @@ export default function AllOrdersPage() {
     },
     {
       header: "Customer",
-      render: (row: any) => (
+      render: (row: Order) => (
         <span className="font-semibold text-gray-800">
           {row.customerName || "Walk-in Guest"}
         </span>
@@ -114,43 +125,43 @@ export default function AllOrdersPage() {
     },
     {
       header: "Items",
-      render: (row: any) => (
+      render: (row: Order) => (
         <span className="text-gray-600 font-medium">
-          {row.items || (row.itemList ? `${row.itemList.length} Items` : "1 Item")}
+          {row.items.length} {row.items.length === 1 ? "Item" : "Items"}
         </span>
       ),
     },
     {
       header: "Type",
-      render: (row: any) => (
-        <span className="text-gray-600 font-medium">{row.orderType}</span>
+      render: (row: Order) => (
+        <span className="text-gray-600 font-medium">{label(row.orderType)}</span>
       ),
     },
     {
       header: "Date & Time",
-      render: (row: any) => (
+      render: (row: Order) => (
         <span className="text-gray-500 text-xs md:text-sm">
-          {row.createdAt || "19 Nov, 2:15 PM"}
+          {new Date(row.createdAt).toLocaleString()}
         </span>
       ),
     },
     {
       header: "Total",
-      render: (row: any) => (
+      render: (row: Order) => (
         <span className="font-extrabold text-gray-900">₹{row.total}</span>
       ),
     },
     {
       header: "Status",
-      render: (row: any) => <StatusBadge status={row.status} />,
+      render: (row: Order) => <StatusBadge status={row.status} />,
     },
     {
       header: "Action",
-      render: (row: any) => (
+      render: (row: Order) => (
         <div className="flex items-center gap-2">
           {/* View Details */}
           <button
-            onClick={() => setSelectedOrder(row)}
+            onClick={() => setSelectedOrder({ ...row, table: row.table ? `T${row.table.tableNumber}` : undefined, orderType: label(row.orderType) })}
             className="w-8 h-8 rounded-lg bg-gray-100 hover:bg-orange-100 text-gray-600 hover:text-orange-600 flex items-center justify-center transition"
             title="View Order Details"
           >
@@ -186,6 +197,7 @@ export default function AllOrdersPage() {
       subtitle="View and manage all restaurant orders"
     >
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 md:p-6 space-y-6">
+        {errorMessage && <p role="alert" className="text-sm text-red-600">{errorMessage}</p>}
         {/* Filters Top Bar matching Screenshot panel 3 */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
           <SearchBar
@@ -199,12 +211,13 @@ export default function AllOrdersPage() {
             onChange={setStatusFilter}
             options={[
               { label: "All Status", value: "ALL" },
-              { label: "Pending", value: "Pending" },
-              { label: "Preparing", value: "Preparing" },
-              { label: "Ready", value: "Ready" },
-              { label: "Served", value: "Served" },
-              { label: "Completed", value: "Completed" },
-              { label: "Cancelled", value: "Cancelled" },
+              { label: "Placed", value: "PLACED" },
+              { label: "Accepted", value: "ACCEPTED" },
+              { label: "Preparing", value: "PREPARING" },
+              { label: "Ready", value: "READY" },
+              { label: "Served", value: "SERVED" },
+              { label: "Completed", value: "COMPLETED" },
+              { label: "Cancelled", value: "CANCELLED" },
             ]}
             className="w-full sm:w-44"
           />
@@ -214,18 +227,18 @@ export default function AllOrdersPage() {
             onChange={setTypeFilter}
             options={[
               { label: "All Type", value: "ALL" },
-              { label: "Dine In", value: "Dine In" },
-              { label: "Takeaway", value: "Takeaway" },
-              { label: "Delivery", value: "Delivery" },
+              { label: "Dine In", value: "DINE_IN" },
+              { label: "Takeaway", value: "TAKEAWAY" },
+              { label: "Delivery", value: "DELIVERY" },
             ]}
             className="w-full sm:w-40"
           />
 
           <button
-            onClick={fetchOrders}
+            onClick={() => void fetchOrders(1)}
             className="bg-orange-500 hover:bg-orange-600 text-white font-bold px-6 py-2.5 rounded-xl transition shadow-sm cursor-pointer text-sm whitespace-nowrap"
           >
-            Search
+            {isLoading ? "Loading…" : "Search"}
           </button>
         </div>
 
@@ -240,16 +253,16 @@ export default function AllOrdersPage() {
         {/* Pagination footer matching screenshot */}
         <div className="flex flex-col sm:flex-row justify-between items-center gap-3 pt-2 text-sm text-gray-500">
           <p>
-            Showing 1-{filteredOrders.length} of {filteredOrders.length} orders
+            Showing {totalOrders ? (currentPage - 1) * 20 + 1 : 0}-{Math.min(currentPage * 20, totalOrders)} of {totalOrders} orders
           </p>
           <div className="flex items-center gap-1.5">
-            <button className="w-8 h-8 rounded-lg border border-gray-200 text-gray-400 hover:bg-gray-50 flex items-center justify-center font-bold">
+            <button disabled={isLoading || currentPage <= 1} onClick={() => void fetchOrders(currentPage - 1)} className="w-8 h-8 rounded-lg border border-gray-200 text-gray-400 hover:bg-gray-50 disabled:opacity-40 flex items-center justify-center font-bold">
               ‹
             </button>
             <button className="w-8 h-8 rounded-lg bg-orange-500 text-white flex items-center justify-center font-bold shadow-xs">
-              1
+              {currentPage}
             </button>
-            <button className="w-8 h-8 rounded-lg border border-gray-200 text-gray-400 hover:bg-gray-50 flex items-center justify-center font-bold">
+            <button disabled={isLoading || currentPage >= totalPages} onClick={() => void fetchOrders(currentPage + 1)} className="w-8 h-8 rounded-lg border border-gray-200 text-gray-400 hover:bg-gray-50 disabled:opacity-40 flex items-center justify-center font-bold">
               ›
             </button>
           </div>
@@ -308,16 +321,17 @@ export default function AllOrdersPage() {
                 <select
                   value={editingOrder.status}
                   onChange={(e) =>
-                    setEditingOrder({ ...editingOrder, status: e.target.value })
+                    setEditingOrder({ ...editingOrder, status: e.target.value as Order["status"] })
                   }
                   className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
                 >
-                  <option value="Pending">Pending</option>
-                  <option value="Preparing">Preparing</option>
-                  <option value="Ready">Ready</option>
-                  <option value="Served">Served</option>
-                  <option value="Completed">Completed</option>
-                  <option value="Cancelled">Cancelled</option>
+                  <option value="PLACED">Placed</option>
+                  <option value="ACCEPTED">Accepted</option>
+                  <option value="PREPARING">Preparing</option>
+                  <option value="READY">Ready</option>
+                  <option value="SERVED">Served</option>
+                  <option value="COMPLETED">Completed</option>
+                  <option value="CANCELLED">Cancelled</option>
                 </select>
               </div>
             </div>

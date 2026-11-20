@@ -203,7 +203,7 @@ Roles supported: `RESTAURANT_ADMIN`, `MANAGER`, `FRONT_OF_HOUSE`, `KITCHEN_STAFF
 ### 1. Create Staff Account
 - **Method:** `POST`
 - **Endpoint:** `/users`
-- **Auth:** Bearer Token (`RESTAURANT_ADMIN`, `MANAGER`)
+- **Auth:** Bearer Token (`RESTAURANT_ADMIN` only)
 - **Body:**
   ```json
   {

@@ -1,75 +1,76 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { dashboardService, notificationService, Order, ApiError } from "@/services/api";
+import { useAuth } from "@/components/auth/AuthProvider";
 
 export default function Home() {
 
-  const [activePage, setActivePage] = useState("Home");
+  const { user, signOut } = useAuth();
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [statsData, setStatsData] = useState<Record<string, number> | null>(null);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [unreadCount, setUnreadCount] = useState(0);
 
-  const orders = [
-    {
-      id: "ORD101",
-      name: "Rahul Sharma",
-      items: "2 Items",
-      status: "Preparing",
-      time: "2 min ago",
-    },
-    {
-      id: "ORD102",
-      name: "Amit Kumar",
-      items: "1 Item",
-      status: "Pending",
-      time: "3 min ago",
-    },
-    {
-      id: "ORD103",
-      name: "Priya Singh",
-      items: "3 Items",
-      status: "Completed",
-      time: "5 min ago",
-    },
-    {
-      id: "ORD104",
-      name: "Rohit Verma",
-      items: "1 Item",
-      status: "Delivering",
-      time: "7 min ago",
-    },
-    {
-      id: "ORD105",
-      name: "Neha Gupta",
-      items: "2 Items",
-      status: "Completed",
-      time: "10 min ago",
-    },
-  ];
+  useEffect(() => {
+    let active = true;
+    const loadDashboard = async () => {
+      try {
+        const [stats, recentOrders, notifications] = await Promise.all([
+          dashboardService.getStats(),
+          dashboardService.getRecentOrders(5),
+          notificationService.getAll(),
+        ]);
+        if (active) {
+          setStatsData(stats);
+          setOrders(recentOrders);
+          setUnreadCount(notifications.unreadCount);
+          setErrorMessage("");
+        }
+      } catch (err) {
+        if (active) setErrorMessage(err instanceof ApiError ? err.message : "Could not load dashboard data.");
+      }
+    };
+    void loadDashboard();
+    return () => { active = false; };
+  }, []);
+
+  const clearNotifications = async () => {
+    if (!unreadCount) return;
+    try {
+      await notificationService.markAllRead();
+      setUnreadCount(0);
+    } catch (err) {
+      setErrorMessage(err instanceof ApiError ? err.message : "Could not update notifications.");
+    }
+  };
 
   const stats = [
     {
       title: "Total Orders",
-      value: "125",
+      value: String(statsData?.totalOrders ?? "—"),
       icon: "🛍️",
       color: "text-orange-400",
       line: "bg-orange-500",
     },
     {
       title: "Pending Orders",
-      value: "18",
+      value: String(statsData?.pendingOrders ?? "—"),
       icon: "◷",
       color: "text-yellow-400",
       line: "bg-yellow-500",
     },
     {
       title: "Preparing Orders",
-      value: "12",
+      value: String(statsData?.preparingOrders ?? "—"),
       icon: "👨‍🍳",
       color: "text-green-400",
       line: "bg-green-500",
     },
     {
       title: "Completed Orders",
-      value: "95",
+      value: String(statsData?.completedOrders ?? "—"),
       icon: "✓",
       color: "text-blue-400",
       line: "bg-blue-500",
@@ -85,10 +86,13 @@ export default function Home() {
   ];
 
   const statusStyle: Record<string, string> = {
-    Preparing: "bg-orange-100 text-orange-600",
-    Pending: "bg-blue-100 text-blue-600",
-    Completed: "bg-green-100 text-green-600",
-    Delivering: "bg-purple-100 text-purple-600",
+    PREPARING: "bg-orange-100 text-orange-600",
+    PLACED: "bg-blue-100 text-blue-600",
+    ACCEPTED: "bg-blue-100 text-blue-600",
+    COMPLETED: "bg-green-100 text-green-600",
+    READY: "bg-indigo-100 text-indigo-600",
+    SERVED: "bg-green-100 text-green-600",
+    CANCELLED: "bg-red-100 text-red-600",
   };
 
   return (
@@ -130,7 +134,7 @@ export default function Home() {
                 key={item.name}
                 href={item.href}
                 className={`w-full flex items-center gap-5 px-4 py-3 rounded-xl text-left transition-all ${
-                  activePage === item.name
+                  item.name === "Home"
                     ? "bg-orange-500 text-white shadow-lg shadow-orange-500/20"
                     : "text-gray-300 hover:bg-[#25262D]"
                 }`}
@@ -169,7 +173,7 @@ export default function Home() {
               </p>
 
               <p className="font-semibold text-sm">
-                Restaurant Admin
+                {user?.name || "Staff member"}
               </p>
             </div>
 
@@ -187,6 +191,7 @@ export default function Home() {
       {/* MAIN SECTION */}
 
       <main className="flex-1 min-w-0 p-4 md:p-7">
+        {errorMessage && <p role="alert" className="mb-4 text-sm text-red-600">{errorMessage}</p>}
 
         {/* TOP HEADER */}
 
@@ -200,7 +205,7 @@ export default function Home() {
 
             <div>
               <h2 className="text-2xl font-bold text-gray-900">
-                {activePage}
+                Home
               </h2>
 
               <p className="text-gray-500 text-sm">
@@ -218,21 +223,17 @@ export default function Home() {
               <span className="w-3 h-3 bg-green-500 rounded-full"></span>
 
               <span className="text-sm font-semibold">
-                Restaurant Online
+                {user?.restaurant?.name || "Restaurant"}
               </span>
 
             </div>
 
-            <button className="text-2xl relative">
+            <button onClick={() => void clearNotifications()} aria-label="Mark notifications as read" className="text-2xl relative">
               ♧
-              <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
-                3
-              </span>
+              {unreadCount > 0 && <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs min-w-5 h-5 px-1 rounded-full flex items-center justify-center">{unreadCount > 9 ? "9+" : unreadCount}</span>}
             </button>
 
-            <div className="w-11 h-11 bg-[#101116] rounded-full flex items-center justify-center text-2xl">
-              👤
-            </div>
+            <button type="button" onClick={() => void signOut()} title="Sign out" aria-label="Sign out" className="w-11 h-11 bg-[#101116] rounded-full flex items-center justify-center text-sm font-bold text-white">{user?.name?.charAt(0).toUpperCase() || "U"}</button>
 
           </div>
 
@@ -369,37 +370,37 @@ export default function Home() {
                     >
 
                       <td className="p-4 font-semibold text-gray-800">
-                        #{order.id}
+                        #{order.orderNumber}
                       </td>
 
                       <td className="p-4 font-medium text-gray-800">
-                        {order.name}
+                        {order.customerName || "Walk-in Guest"}
                       </td>
 
                       <td className="p-4 text-gray-600">
-                        {order.items}
+                        {order.items.length} {order.items.length === 1 ? "Item" : "Items"}
                       </td>
 
                       <td className="p-4">
 
-                        <span className={`px-3 py-1.5 rounded-full text-xs font-semibold ${statusStyle[order.status]}`}>
-                          ● {order.status}
+                        <span className={`px-3 py-1.5 rounded-full text-xs font-semibold ${statusStyle[order.status] || "bg-gray-100 text-gray-600"}`}>
+                          • {order.status.replaceAll("_", " ")}
                         </span>
 
                       </td>
 
                       <td className="p-4 text-gray-500 text-sm">
-                        {order.time}
+                        {new Date(order.createdAt).toLocaleString()}
                       </td>
 
                       <td className="p-4">
 
-                        <button
-                          onClick={() => alert(`Order ID: ${order.id}\nCustomer: ${order.name}\nStatus: ${order.status}`)}
+                        <Link
+                          href={`/tracking?order=${encodeURIComponent(order.orderNumber)}`}
                           className="border border-orange-300 text-orange-600 px-4 py-1.5 rounded-full text-sm font-semibold hover:bg-orange-500 hover:text-white transition"
                         >
                           View
-                        </button>
+                        </Link>
 
                       </td>
 
@@ -438,11 +439,11 @@ export default function Home() {
               <div className="text-center">
 
                 <h2 className="text-2xl font-bold">
-                  DineDesk Bistro
+                  {user?.restaurant?.name || "Restaurant"}
                 </h2>
 
                 <p className="text-gray-400 mt-2 text-sm">
-                  Good Food, Good Mood!
+                  {user?.restaurant?.address || "Restaurant workspace"}
                 </p>
 
                 <div className="border-t border-gray-700 my-6"></div>

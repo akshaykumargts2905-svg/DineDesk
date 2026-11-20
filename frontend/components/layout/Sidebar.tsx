@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useAuth } from "@/components/auth/AuthProvider";
 
 interface SidebarProps {
   isOpen?: boolean;
@@ -10,6 +11,7 @@ interface SidebarProps {
 
 export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
   const pathname = usePathname();
+  const { user, signOut } = useAuth();
 
   const navigation = [
     { name: "Home", href: "/", icon: "⌂" },
@@ -17,7 +19,16 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
     { name: "All Orders", href: "/all-orders", icon: "☷" },
     { name: "Kitchen", href: "/kitchen", icon: "♨" },
     { name: "Tracking", href: "/tracking", icon: "♧" },
-  ];
+    { name: "Menu Management", href: "/menu-management", icon: "M" },
+    { name: "Table Management", href: "/table-management", icon: "T" },
+  ].filter((item) => {
+    if (item.href === "/") return user?.role === "RESTAURANT_ADMIN" || user?.role === "MANAGER";
+    if (item.href === "/menu-management" || item.href === "/table-management") return user?.role === "RESTAURANT_ADMIN" || user?.role === "MANAGER";
+    if (item.href === "/kitchen") return user?.role !== "FRONT_OF_HOUSE";
+    if (item.href === "/tracking") return user?.role !== "KITCHEN_STAFF";
+    if (item.href === "/new-order") return user?.role !== "KITCHEN_STAFF";
+    return true;
+  });
 
   const isActive = (href: string) => {
     if (href === "/" && pathname === "/") return true;
@@ -97,12 +108,12 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
             <div className="flex-1 min-w-0">
               <p className="text-[11px] text-gray-400">Logged in as</p>
               <p className="font-semibold text-xs text-white truncate">
-                Restaurant Admin
+                {user?.name || "Staff member"}
               </p>
             </div>
-            <span className="text-gray-400 hover:text-orange-400 text-lg cursor-pointer transition-colors">
+            <button onClick={() => void signOut()} aria-label="Sign out" title="Sign out" className="text-gray-400 hover:text-orange-400 text-xs cursor-pointer transition-colors">
               ⇥
-            </span>
+            </button>
           </div>
         </div>
       </aside>

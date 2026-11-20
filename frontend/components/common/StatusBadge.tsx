@@ -34,7 +34,7 @@ export default function StatusBadge({ status, size = "md" }: StatusBadgeProps) {
       className={`inline-flex items-center gap-1.5 rounded-full border ${style} ${sizeClasses} transition-colors`}
     >
       <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
-      <span className="capitalize">{status}</span>
+      <span className="capitalize">{status.replaceAll("_", " ")}</span>
     </span>
   );
 }

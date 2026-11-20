@@ -3,8 +3,15 @@ import jwt from 'jsonwebtoken';
 import prisma from '../config/db.js';
 import { successResponse, errorResponse } from '../utils/responseHandler.js';
 
+const getJwtSecret = () => {
+  if (!process.env.JWT_SECRET) {
+    throw new Error('JWT_SECRET must be configured before authentication can be used');
+  }
+  return process.env.JWT_SECRET;
+};
+
 const generateToken = (user) => {
-  const secret = process.env.JWT_SECRET || 'dinedesk_jwt_secret_key_2026_super_secure';
+  const secret = getJwtSecret();
   const expiresIn = process.env.JWT_EXPIRES_IN || '7d';
 
   return jwt.sign(

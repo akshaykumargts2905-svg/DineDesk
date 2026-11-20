@@ -3,51 +3,87 @@
 import { useState, useEffect } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import OrderTimeline from "@/components/orders/OrderTimeline";
-import { orderService, MOCK_ORDERS } from "@/services/api";
+import { ApiError, Order, trackingService } from "@/services/api";
 
 export default function TrackingPage() {
-  const [searchId, setSearchId] = useState("ORD101");
-  const [activeOrder, setActiveOrder] = useState<any>(MOCK_ORDERS[0]);
+  const [searchId, setSearchId] = useState("");
+  const [activeOrder, setActiveOrder] = useState<Order | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("CASH");
+  const [actionBusy, setActionBusy] = useState(false);
+
+  useEffect(() => {
+    const initialLoad = window.setTimeout(() => {
+    const queryOrder = new URLSearchParams(window.location.search).get("order");
+    if (queryOrder) {
+      setSearchId(queryOrder);
+      void trackingService.getById(queryOrder).then(setActiveOrder).catch((err) => setErrorMessage(err instanceof ApiError ? err.message : "Could not load order tracking."));
+      return;
+    }
+    void trackingService.getOrders().then((orders) => {
+      if (orders[0]) {
+        setActiveOrder(orders[0]);
+        setSearchId(orders[0].orderNumber);
+      } else setErrorMessage("There are no active orders to track.");
+    }).catch((err) => setErrorMessage(err instanceof ApiError ? err.message : "Could not load active orders."));
+    }, 0);
+    return () => window.clearTimeout(initialLoad);
+  }, []);
+
+  useEffect(() => {
+    if (!activeOrder) return;
+    const interval = window.setInterval(() => {
+      void trackingService.getById(activeOrder.orderNumber).then(setActiveOrder).catch(() => {});
+    }, 15000);
+    return () => window.clearInterval(interval);
+  }, [activeOrder]);
 
   const handleTrack = async () => {
     if (!searchId.trim()) return;
     setIsSearching(true);
+    setActiveOrder(null);
     setErrorMessage("");
 
     try {
       const cleanId = searchId.trim().replace(/^#/, "");
-      const found = await orderService.getById(cleanId);
-      if (found) {
-        setActiveOrder(found);
-      } else {
-        const localMatch = MOCK_ORDERS.find(
-          (o) =>
-            o.id.toLowerCase() === cleanId.toLowerCase() ||
-            o.orderNumber.toLowerCase() === cleanId.toLowerCase()
-        );
-        if (localMatch) {
-          setActiveOrder(localMatch);
-        } else {
-          setErrorMessage(`No order found matching "${searchId}". Showing recent order.`);
-        }
-      }
-    } catch {
-      const localMatch = MOCK_ORDERS.find(
-        (o) =>
-          o.id.toLowerCase() === searchId.trim().replace(/^#/, "").toLowerCase()
-      );
-      if (localMatch) setActiveOrder(localMatch);
+      const found = await trackingService.getById(cleanId);
+      setActiveOrder(found);
+    } catch (err) {
+      setErrorMessage(err instanceof ApiError ? err.message : "Could not find that order.");
     } finally {
       setIsSearching(false);
     }
   };
 
-  const isOrderReady =
-    (activeOrder?.status || "").toUpperCase() === "READY" ||
-    (activeOrder?.status || "").toUpperCase() === "SERVED" ||
-    (activeOrder?.status || "").toUpperCase() === "COMPLETED";
+  const isOrderReady = ["READY", "SERVED", "COMPLETED"].includes(activeOrder?.status || "");
+  const historyTime = (status: string) => {
+    const entry = activeOrder?.statusHistory?.find((item) => item.toStatus === status);
+    return entry ? new Date(entry.changedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "Pending";
+  };
+  const updateStatus = async (action: "served" | "complete") => {
+    if (!activeOrder) return;
+    setActionBusy(true);
+    setErrorMessage("");
+    try {
+      const updated = action === "served"
+        ? await trackingService.markServed(activeOrder.id)
+        : await trackingService.complete(activeOrder.id, paymentMethod);
+      setActiveOrder(updated);
+    } catch (err) {
+      setErrorMessage(err instanceof ApiError ? err.message : "Could not update order status.");
+    } finally {
+      setActionBusy(false);
+    }
+  };
+
+  if (!activeOrder) return (
+    <DashboardLayout title="Tracking" subtitle="Track your order in real-time">
+      <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+        {errorMessage ? <p role="alert" className="text-sm text-red-600">{errorMessage}</p> : <p className="text-sm text-gray-500">Loading active orders…</p>}
+      </div>
+    </DashboardLayout>
+  );
 
   return (
     <DashboardLayout
@@ -107,21 +143,21 @@ export default function TrackingPage() {
                 <div>
                   <p className="text-xs text-gray-400 font-medium">Customer</p>
                   <p className="font-bold text-gray-800 text-sm mt-0.5">
-                    {activeOrder.customerName || "Rahul Sharma"}
+                    {activeOrder.customerName || "Walk-in Guest"}
                   </p>
                 </div>
 
                 <div>
                   <p className="text-xs text-gray-400 font-medium">Order Type</p>
                   <p className="font-bold text-gray-800 text-sm mt-0.5">
-                    {activeOrder.orderType || "Dine In"}
+                    {activeOrder.orderType.replaceAll("_", " ")}
                   </p>
                 </div>
 
                 <div>
                   <p className="text-xs text-gray-400 font-medium">Total Amount</p>
                   <p className="font-extrabold text-orange-600 text-base mt-0.5">
-                    ₹{activeOrder.total || 540}
+                    ₹{activeOrder.total}
                   </p>
                 </div>
               </div>
@@ -131,7 +167,7 @@ export default function TrackingPage() {
               <div className="mt-6 pt-4 border-t border-gray-100 flex justify-between items-center text-xs text-gray-500">
                 <span>Table Assigned</span>
                 <span className="font-bold text-gray-800 bg-gray-100 px-2.5 py-1 rounded-md">
-                  {activeOrder.table}
+                  T{activeOrder.table?.tableNumber}
                 </span>
               </div>
             )}
@@ -150,16 +186,29 @@ export default function TrackingPage() {
               <OrderTimeline
                 currentStatus={activeOrder.status}
                 timestamps={{
-                  placed: "2:15 PM",
-                  preparing: "2:17 PM",
-                  ready: "2:20 PM",
-                  served: activeOrder.status === "Completed" ? "2:25 PM" : "Pending",
+                  placed: historyTime("PLACED"),
+                  preparing: historyTime("PREPARING"),
+                  ready: historyTime("READY"),
+                  served: historyTime("SERVED"),
                 }}
               />
             </div>
 
+            {(activeOrder.status === "READY" || activeOrder.status === "SERVED") && (
+              <div className="flex flex-wrap gap-2 pb-3">
+                {activeOrder.status === "READY" && <button disabled={actionBusy} onClick={() => void updateStatus("served")} className="flex-1 bg-orange-500 hover:bg-orange-600 disabled:opacity-60 text-white text-xs font-bold py-2.5 rounded-xl">{actionBusy ? "Saving…" : "Mark Served"}</button>}
+                {activeOrder.status === "SERVED" && <>
+                  <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} className="flex-1 border border-gray-200 rounded-xl px-2 text-xs">
+                    <option value="CASH">Cash</option><option value="CARD">Card</option><option value="UPI">UPI</option><option value="OTHER">Other</option>
+                  </select>
+                  <button disabled={actionBusy} onClick={() => void updateStatus("complete")} className="flex-1 bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white text-xs font-bold py-2.5 rounded-xl">{actionBusy ? "Saving…" : "Complete & Pay"}</button>
+                </>}
+              </div>
+            )}
+            {errorMessage && <p role="alert" className="text-xs text-red-600 pb-2">{errorMessage}</p>}
+
             <div className="text-center text-xs text-gray-400 pt-2 border-t border-gray-100">
-              Live kitchen tracking updated automatically
+              Refreshes automatically every 15 seconds
             </div>
           </div>
 
@@ -174,40 +223,20 @@ export default function TrackingPage() {
               </div>
 
               <div className="space-y-4 text-xs font-semibold text-gray-700">
-                <div className="flex items-start gap-2.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-orange-500 mt-1 shrink-0"></span>
-                  <div>
-                    <p className="text-gray-900 font-bold">Order Placed</p>
-                    <p className="text-gray-400 font-normal text-[11px]">2:15 PM</p>
+                {activeOrder.statusHistory?.length ? activeOrder.statusHistory.map((entry) => (
+                  <div key={`${entry.toStatus}-${entry.changedAt}`} className="flex items-start gap-2.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-orange-500 mt-1 shrink-0"></span>
+                    <div>
+                      <p className="text-gray-900 font-bold">{entry.toStatus.replaceAll("_", " ")}</p>
+                      <p className="text-gray-400 font-normal text-[11px]">{new Date(entry.changedAt).toLocaleString()}</p>
+                    </div>
                   </div>
-                </div>
-
-                <div className="flex items-start gap-2.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-orange-500 mt-1 shrink-0"></span>
-                  <div>
-                    <p className="text-gray-900 font-bold">In Preparation</p>
-                    <p className="text-gray-400 font-normal text-[11px]">2:17 PM</p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-2.5">
-                  <span
-                    className={`w-2.5 h-2.5 rounded-full mt-1 shrink-0 ${
-                      isOrderReady ? "bg-orange-500" : "bg-gray-300"
-                    }`}
-                  ></span>
-                  <div>
-                    <p className="text-gray-900 font-bold">Ready for Pickup</p>
-                    <p className="text-gray-400 font-normal text-[11px]">
-                      {isOrderReady ? "2:20 PM" : "Estimated 2:25 PM"}
-                    </p>
-                  </div>
-                </div>
+                )) : <p className="text-gray-400">No status history available.</p>}
               </div>
             </div>
 
             <div className="text-[11px] text-gray-400 pt-3 border-t border-gray-100">
-              Average Prep: 15 mins
+              Status history from order updates
             </div>
           </div>
 

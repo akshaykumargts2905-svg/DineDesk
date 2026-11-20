@@ -1,12 +1,5 @@
 "use client";
 
-interface Step {
-  title: string;
-  time?: string;
-  isCompleted?: boolean;
-  isCurrent?: boolean;
-}
-
 interface OrderTimelineProps {
   currentStatus: string;
   timestamps?: {
@@ -20,9 +13,9 @@ interface OrderTimelineProps {
 export default function OrderTimeline({
   currentStatus,
   timestamps = {
-    placed: "2:15 PM",
-    preparing: "2:17 PM",
-    ready: "2:20 PM",
+    placed: "Pending",
+    preparing: "Pending",
+    ready: "Pending",
     served: "Pending",
   },
 }: OrderTimelineProps) {
@@ -33,7 +26,7 @@ export default function OrderTimeline({
     {
       id: "placed",
       title: "Placed",
-      time: timestamps.placed || "2:15 PM",
+      time: timestamps.placed || "Pending",
       done: true,
       current: norm === "PLACED",
       color: "bg-orange-500",
@@ -41,15 +34,15 @@ export default function OrderTimeline({
     {
       id: "preparing",
       title: "Preparing",
-      time: timestamps.preparing || "2:17 PM",
+      time: timestamps.preparing || "Pending",
       done: ["PREPARING", "READY", "SERVED", "COMPLETED"].includes(norm),
-      current: norm === "PREPARING",
+      current: norm === "ACCEPTED" || norm === "PREPARING",
       color: "bg-orange-500",
     },
     {
       id: "ready",
       title: "Ready",
-      time: timestamps.ready || "2:20 PM",
+      time: timestamps.ready || "Pending",
       done: ["READY", "SERVED", "COMPLETED"].includes(norm),
       current: norm === "READY",
       color: "bg-blue-600",
@@ -78,7 +71,7 @@ export default function OrderTimeline({
                   ? "100%"
                   : norm === "READY"
                   ? "66%"
-                  : norm === "PREPARING"
+                  : norm === "ACCEPTED" || norm === "PREPARING"
                   ? "33%"
                   : "0%",
             }}

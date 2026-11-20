@@ -4,81 +4,53 @@ import { useState, useEffect } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import MenuItemCard from "@/components/orders/MenuItemCard";
 import OrderSummary, { CartItem } from "@/components/orders/OrderSummary";
-import { menuService, tableService, orderService, MOCK_MENU_ITEMS } from "@/services/api";
+import { menuService, tableService, orderService, ApiError, MenuItem, DiningTable } from "@/services/api";
 
 export default function NewOrderPage() {
   // Customer details
-  const [customerName, setCustomerName] = useState("Rahul Sharma");
-  const [customerPhone, setCustomerPhone] = useState("9876543210");
+  const [customerName, setCustomerName] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
   const [notes, setNotes] = useState("");
 
   // Order settings
   const [orderType, setOrderType] = useState<"Dine In" | "Takeaway" | "Delivery">("Dine In");
-  const [selectedTable, setSelectedTable] = useState("T1");
-  const [tables, setTables] = useState<string[]>(["T1", "T2", "T3", "T4", "T5"]);
+  const [selectedTable, setSelectedTable] = useState("");
+  const [tables, setTables] = useState<DiningTable[]>([]);
 
   // Categories & Menu
   const [selectedCategory, setSelectedCategory] = useState("All");
-  const [categories, setCategories] = useState<string[]>([
-    "All",
-    "Starters",
-    "Main Course",
-    "Beverages",
-    "Desserts",
-  ]);
-  const [menuItems, setMenuItems] = useState(MOCK_MENU_ITEMS);
+  const [categories, setCategories] = useState<string[]>(["All"]);
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
 
-  // Cart state - preloaded with items from screenshot
-  const [cart, setCart] = useState<CartItem[]>([
-    {
-      id: "item-1",
-      name: "Paneer Tikka",
-      price: 220,
-      quantity: 1,
-      imageUrl: "https://images.unsplash.com/photo-1599488615731-7e5c2823ff28?w=500&auto=format&fit=crop&q=80",
-    },
-    {
-      id: "item-2",
-      name: "Butter Chicken",
-      price: 320,
-      quantity: 1,
-      imageUrl: "https://images.unsplash.com/photo-1603894584373-5ac82b2ae398?w=500&auto=format&fit=crop&q=80",
-    },
-  ]);
+  const [cart, setCart] = useState<CartItem[]>([]);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successOrder, setSuccessOrder] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState("");
 
   // Fetch real menu and tables from backend if available
   useEffect(() => {
     async function loadData() {
       try {
-        const [dbItems, dbTables] = await Promise.all([
+        const [dbItems, dbTables, dbCategories] = await Promise.all([
           menuService.getItems(),
           tableService.getTables(),
+          menuService.getCategories(),
         ]);
 
-        if (Array.isArray(dbItems) && dbItems.length > 0) {
-          setMenuItems(dbItems);
-          const uniqueCats = [
-            "All",
-            ...Array.from(new Set(dbItems.map((i: any) => i.category?.name || i.category || "Main Course"))),
-          ];
-          setCategories(uniqueCats);
-        }
-
-        if (Array.isArray(dbTables) && dbTables.length > 0) {
-          setTables(dbTables.map((t: any) => `T${t.tableNumber}`));
-        }
+        setMenuItems(dbItems);
+        setTables(dbTables);
+        setCategories(["All", ...dbCategories.map((category) => category.name)]);
+        if (dbTables.length) setSelectedTable(dbTables[0].id);
       } catch (err) {
-        console.log("Using default restaurant data", err);
+        setErrorMessage(err instanceof Error ? err.message : "Could not load menu and tables.");
       }
     }
     loadData();
   }, []);
 
   // Cart operations
-  const handleAddToCart = (item: any) => {
+  const handleAddToCart = (item: MenuItem) => {
     setCart((prev) => {
       const existing = prev.find((i) => i.id === item.id);
       if (existing) {
@@ -91,9 +63,9 @@ export default function NewOrderPage() {
         {
           id: item.id,
           name: item.name,
-          price: item.price,
+          price: Number(item.price),
           quantity: 1,
-          imageUrl: item.imageUrl,
+          imageUrl: item.imageUrl || undefined,
         },
       ];
     });
@@ -120,7 +92,12 @@ export default function NewOrderPage() {
   // Place Order handler
   const handlePlaceOrder = async () => {
     if (cart.length === 0) return;
+    if (orderType === "Dine In" && !selectedTable) {
+      setErrorMessage("Select an active table before placing a dine-in order.");
+      return;
+    }
     setIsSubmitting(true);
+    setErrorMessage("");
 
     try {
       const orderPayload = {
@@ -141,14 +118,10 @@ export default function NewOrderPage() {
       };
 
       const result = await orderService.create(orderPayload);
-      const orderNum = result?.data?.orderNumber || `ORD${Math.floor(100 + Math.random() * 900)}`;
-
-      setSuccessOrder(orderNum);
+      setSuccessOrder(result.orderNumber);
       setCart([]);
     } catch (err) {
-      console.error(err);
-      setSuccessOrder(`ORD${Math.floor(100 + Math.random() * 900)}`);
-      setCart([]);
+      setErrorMessage(err instanceof ApiError ? err.message : "Could not place the order.");
     } finally {
       setIsSubmitting(false);
     }
@@ -158,9 +131,9 @@ export default function NewOrderPage() {
   const filteredItems =
     selectedCategory === "All"
       ? menuItems
-      : menuItems.filter(
-          (item: any) =>
-            (item.category?.name || item.category || "").toLowerCase() ===
+        : menuItems.filter(
+            (item) =>
+              (item.category?.name || "").toLowerCase() ===
             selectedCategory.toLowerCase()
         );
 
@@ -210,6 +183,10 @@ export default function NewOrderPage() {
                   />
                 </div>
               </div>
+              <label className="block text-xs font-semibold text-gray-500 mt-3">
+                Order notes
+                <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} placeholder="Special requests" className="mt-1.5 w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition" />
+              </label>
             </div>
 
             {/* Table Selection Card */}
@@ -223,20 +200,20 @@ export default function NewOrderPage() {
 
               <div className="flex flex-wrap gap-2 pt-1">
                 {tables.map((table) => {
-                  const isSelected = selectedTable === table && orderType === "Dine In";
+                  const isSelected = selectedTable === table.id && orderType === "Dine In";
                   return (
                     <button
-                      key={table}
+                      key={table.id}
                       type="button"
                       disabled={orderType !== "Dine In"}
-                      onClick={() => setSelectedTable(table)}
+                      onClick={() => setSelectedTable(table.id)}
                       className={`flex-1 min-w-[44px] py-2.5 rounded-xl font-bold text-sm transition-all cursor-pointer ${
                         isSelected
                           ? "bg-orange-500 text-white shadow-md shadow-orange-500/20"
                           : "bg-gray-50 text-gray-700 hover:bg-gray-100 border border-gray-200/80"
                       } ${orderType !== "Dine In" ? "opacity-40 cursor-not-allowed" : ""}`}
                     >
-                      {table}
+                      T{table.tableNumber}
                     </button>
                   );
                 })}
@@ -310,7 +287,7 @@ export default function NewOrderPage() {
 
           {/* Food Menu Items Grid */}
           <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4">
-            {filteredItems.map((item: any) => (
+            {filteredItems.map((item) => (
               <MenuItemCard
                 key={item.id}
                 item={item}
@@ -318,6 +295,7 @@ export default function NewOrderPage() {
               />
             ))}
           </div>
+          {errorMessage && <p role="alert" className="text-sm text-red-600">{errorMessage}</p>}
         </div>
 
         {/* RIGHT COLUMN: Order Summary */}
