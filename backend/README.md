@@ -84,7 +84,7 @@ npm install
 ### 2. Configure Environment Variables
 Ensure your `backend/.env` file exists with the following keys:
 ```env
-DATABASE_URL="postgresql://neondb_owner:npg_XGLCmgW4rx9B@ep-nameless-cell-bem9sf1v-pooler.c-9.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+DATABASE_URL="postgresql://USER:PASSWORD@HOST:5432/DATABASE?sslmode=require"
 PORT=5000
 JWT_SECRET=dinedesk_jwt_secret_key_2026_super_secure
 JWT_EXPIRES_IN=7d
