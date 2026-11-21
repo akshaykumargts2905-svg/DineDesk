@@ -125,6 +125,31 @@ export function speakNewOrderReceived() {
   }
 }
 
+export function speakText(text: string) {
+  if (!isNotificationSoundEnabled() || typeof window === "undefined" || !text) return;
+
+  try {
+    if (!window.speechSynthesis || typeof SpeechSynthesisUtterance === "undefined") return;
+    window.speechSynthesis.cancel();
+    const announcement = new SpeechSynthesisUtterance(text);
+    announcement.lang = "en-US";
+    window.speechSynthesis.speak(announcement);
+  } catch {
+    // Speech may be unavailable or blocked by browser audio policies.
+  }
+}
+
+export function playSound(text?: string) {
+  if (!isNotificationSoundEnabled() || typeof window === "undefined") return;
+
+  unlockNotificationAudio();
+  playNotificationSound();
+
+  if (text) {
+    speakText(text);
+  }
+}
+
 /**
  * Marks the first Kitchen result as a baseline. Later calls return only IDs
  * that have not already been announced in this browser tab session.

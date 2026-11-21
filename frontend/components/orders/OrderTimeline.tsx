@@ -25,17 +25,17 @@ export default function OrderTimeline({
   const steps = [
     {
       id: "placed",
-      title: "Placed",
+      title: "Confirmed",
       time: timestamps.placed || "Pending",
       done: true,
-      current: norm === "PLACED",
+      current: norm === "CONFIRMED" || norm === "PLACED",
       color: "bg-orange-500",
     },
     {
       id: "preparing",
       title: "Preparing",
       time: timestamps.preparing || "Pending",
-      done: ["PREPARING", "READY", "SERVED", "COMPLETED"].includes(norm),
+      done: ["PREPARING", "READY"].includes(norm),
       current: norm === "ACCEPTED" || norm === "PREPARING",
       color: "bg-orange-500",
     },
@@ -43,16 +43,16 @@ export default function OrderTimeline({
       id: "ready",
       title: "Ready",
       time: timestamps.ready || "Pending",
-      done: ["READY", "SERVED", "COMPLETED"].includes(norm),
+      done: norm === "READY",
       current: norm === "READY",
       color: "bg-blue-600",
     },
     {
       id: "served",
       title: "Served",
-      time: timestamps.served || "Pending",
-      done: ["SERVED", "COMPLETED"].includes(norm),
-      current: norm === "SERVED" || norm === "COMPLETED",
+      time: timestamps.served || timestamps.ready || "Pending",
+      done: norm === "READY",
+      current: norm === "READY",
       color: "bg-emerald-500",
     },
   ];
@@ -67,12 +67,10 @@ export default function OrderTimeline({
             className="h-full bg-orange-500 transition-all duration-500"
             style={{
               width:
-                norm === "COMPLETED" || norm === "SERVED"
+                norm === "READY"
                   ? "100%"
-                  : norm === "READY"
-                  ? "66%"
                   : norm === "ACCEPTED" || norm === "PREPARING"
-                  ? "33%"
+                  ? "50%"
                   : "0%",
             }}
           />

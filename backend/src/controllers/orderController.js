@@ -155,7 +155,7 @@ export const createOrder = async (req, res, next) => {
         customerName: customerName ? customerName.trim() : null,
         customerPhone: customerPhone ? customerPhone.trim() : null,
         orderType,
-        status: 'PLACED',
+        status: 'CONFIRMED',
         paymentStatus: ALLOWED_PAYMENT_STATUSES.includes(paymentStatus) ? paymentStatus : 'UNPAID',
         paymentMethod: ALLOWED_PAYMENT_METHODS.includes(paymentMethod) ? paymentMethod : null,
         subtotal: calculatedSubtotal,
@@ -172,7 +172,7 @@ export const createOrder = async (req, res, next) => {
         statusHistory: {
           create: {
             fromStatus: null,
-            toStatus: 'PLACED',
+            toStatus: 'CONFIRMED',
             note: 'Order placed',
             changedById: req.user.id,
           },
@@ -317,7 +317,7 @@ export const updateOrder = async (req, res, next) => {
       return errorResponse(res, 404, 'Order not found');
     }
 
-    if (existingOrder.status === 'COMPLETED' || existingOrder.status === 'CANCELLED') {
+    if (existingOrder.status === 'READY') {
       return errorResponse(
         res,
         400,
@@ -446,11 +446,7 @@ export const cancelOrder = async (req, res, next) => {
   try {
     const { id } = req.params;
     const restaurantId = req.user.restaurantId;
-    const { cancellationReason, note } = req.body;
-
-    if (!cancellationReason) {
-      return errorResponse(res, 400, 'cancellationReason is required to cancel an order');
-    }
+    const { cancellationReason } = req.body;
 
     const existingOrder = await prisma.order.findFirst({
       where: { id, restaurantId },
@@ -460,39 +456,13 @@ export const cancelOrder = async (req, res, next) => {
       return errorResponse(res, 404, 'Order not found');
     }
 
-    if (existingOrder.status === 'COMPLETED') {
-      return errorResponse(res, 400, 'Cannot cancel an already COMPLETED order');
-    }
-
-    if (existingOrder.status === 'CANCELLED') {
-      return errorResponse(res, 400, 'Order is already cancelled');
-    }
-
-    const cancelledOrder = await prisma.$transaction(async (tx) => {
-      const order = await tx.order.update({
-        where: { id },
-        data: {
-          status: 'CANCELLED',
-          cancellationReason: cancellationReason.trim(),
-        },
-        include: {
-          items: true,
-          table: true,
-        },
-      });
-
-      await tx.orderStatusHistory.create({
-        data: {
-          orderId: id,
-          fromStatus: existingOrder.status,
-          toStatus: 'CANCELLED',
-          note: note ? note.trim() : `Order cancelled: ${cancellationReason.trim()}`,
-          changedById: req.user.id,
-        },
-      });
-
-      return order;
-    }, { timeout: 15000, maxWait: 10000 });
+    const cancelledOrder = await prisma.order.delete({
+      where: { id },
+      include: {
+        items: true,
+        table: true,
+      },
+    });
 
     return successResponse(res, 200, 'Order cancelled successfully', cancelledOrder);
   } catch (error) {

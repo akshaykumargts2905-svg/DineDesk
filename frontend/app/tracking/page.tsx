@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import OrderTimeline from "@/components/orders/OrderTimeline";
 import { ApiError, Order, trackingService } from "@/services/api";
+import { playSound } from "@/app/utils/sound";
 
 export default function TrackingPage() {
   const [searchId, setSearchId] = useState("");
@@ -12,6 +13,7 @@ export default function TrackingPage() {
   const [errorMessage, setErrorMessage] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("CASH");
   const [actionBusy, setActionBusy] = useState(false);
+  const prevOrderStateRef = useRef<{ id: string; status: string } | null>(null);
 
   useEffect(() => {
     const initialLoad = window.setTimeout(() => {
@@ -39,6 +41,25 @@ export default function TrackingPage() {
     return () => window.clearInterval(interval);
   }, [activeOrder]);
 
+  useEffect(() => {
+    if (!activeOrder) return;
+
+    if (prevOrderStateRef.current && prevOrderStateRef.current.id === activeOrder.id) {
+      const prevStatus = prevOrderStateRef.current.status.toUpperCase();
+      const currentStatus = activeOrder.status.toUpperCase();
+
+      if (prevStatus !== currentStatus) {
+        if (currentStatus === "PREPARING") {
+          playSound("Your order is now preparing");
+        } else if (currentStatus === "READY") {
+          playSound("Your order is ready");
+        }
+      }
+    }
+
+    prevOrderStateRef.current = { id: activeOrder.id, status: activeOrder.status };
+  }, [activeOrder]);
+
   const handleTrack = async () => {
     if (!searchId.trim()) return;
     setIsSearching(true);
@@ -56,7 +77,7 @@ export default function TrackingPage() {
     }
   };
 
-  const isOrderReady = ["READY", "SERVED", "COMPLETED"].includes(activeOrder?.status || "");
+  const isOrderReady = (activeOrder?.status || "") === "READY";
   const historyTime = (status: string) => {
     const entry = activeOrder?.statusHistory?.find((item) => item.toStatus === status);
     return entry ? new Date(entry.changedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "Pending";
@@ -186,23 +207,17 @@ export default function TrackingPage() {
               <OrderTimeline
                 currentStatus={activeOrder.status}
                 timestamps={{
-                  placed: historyTime("PLACED"),
+                  placed: historyTime("CONFIRMED"),
                   preparing: historyTime("PREPARING"),
                   ready: historyTime("READY"),
-                  served: historyTime("SERVED"),
+                  served: historyTime("READY"),
                 }}
               />
             </div>
 
-            {(activeOrder.status === "READY" || activeOrder.status === "SERVED") && (
+            {activeOrder.status === "READY" && (
               <div className="flex flex-wrap gap-2 pb-3">
-                {activeOrder.status === "READY" && <button disabled={actionBusy} onClick={() => void updateStatus("served")} className="flex-1 bg-orange-500 hover:bg-orange-600 disabled:opacity-60 text-white text-xs font-bold py-2.5 rounded-xl">{actionBusy ? "Saving…" : "Mark Served"}</button>}
-                {activeOrder.status === "SERVED" && <>
-                  <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} className="flex-1 border border-gray-200 rounded-xl px-2 text-xs">
-                    <option value="CASH">Cash</option><option value="CARD">Card</option><option value="UPI">UPI</option><option value="OTHER">Other</option>
-                  </select>
-                  <button disabled={actionBusy} onClick={() => void updateStatus("complete")} className="flex-1 bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white text-xs font-bold py-2.5 rounded-xl">{actionBusy ? "Saving…" : "Complete & Pay"}</button>
-                </>}
+                <button disabled={actionBusy} onClick={() => void updateStatus("served")} className="flex-1 bg-orange-500 hover:bg-orange-600 disabled:opacity-60 text-white text-xs font-bold py-2.5 rounded-xl">{actionBusy ? "Saving…" : "Mark Served"}</button>
               </div>
             )}
             {errorMessage && <p role="alert" className="text-xs text-red-600 pb-2">{errorMessage}</p>}

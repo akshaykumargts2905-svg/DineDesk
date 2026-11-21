@@ -1,5 +1,7 @@
 "use client";
+import { useEffect, useRef } from "react";
 import type { Order, Role } from "../types";
+import { playSound } from "../utils/sound";
 
 interface TrackingViewProps {
   orders: Order[];
@@ -61,6 +63,25 @@ export default function TrackingView({
   const activeStep  = STEP_KEYS.indexOf(order?.status as StepKey);
   const parsedItems = parseItems(order?.items ?? "");
   const initial     = order?.name?.[0]?.toUpperCase() ?? "?";
+
+  const prevOrderStateRef = useRef<{ id: string; status: string } | null>(null);
+
+  useEffect(() => {
+    if (!order) return;
+    if (prevOrderStateRef.current && prevOrderStateRef.current.id === order.id) {
+      const prevStatus = prevOrderStateRef.current.status.toUpperCase();
+      const currentStatus = order.status.toUpperCase();
+
+      if (prevStatus !== currentStatus) {
+        if (currentStatus === "PREPARING") {
+          playSound("Your order is now preparing");
+        } else if (currentStatus === "READY") {
+          playSound("Your order is ready");
+        }
+      }
+    }
+    prevOrderStateRef.current = { id: order.id, status: order.status };
+  }, [order]);
 
   if (!order) return null;
 

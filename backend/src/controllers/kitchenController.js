@@ -9,7 +9,7 @@ export const getKitchenOrders = async (req, res, next) => {
     const { status } = req.query;
 
     // Kitchen sees: CONFIRMED (needs accept), ACCEPTED, PREPARING, READY
-    const kitchenStatuses = status ? [status] : ['CONFIRMED', 'ACCEPTED', 'PREPARING'];
+    const kitchenStatuses = status ? [status] : ['CONFIRMED', 'ACCEPTED', 'PREPARING', 'READY'];
 
     const orders = await prisma.order.findMany({
       where: {

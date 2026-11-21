@@ -8,6 +8,7 @@ import AllOrderView from "./components/AllOrderView";
 import KitchenView from "./components/KitchenView";
 import TrackingView from "./components/TrackingView";
 import { type Role, type Order, type OrderStatus, ROLE_MENUS } from "./types";
+import { playSound } from "./utils/sound";
 
 export const currentUser = {
   id: "cust-03",
@@ -124,8 +125,18 @@ export default function App() {
 
   const confirmOrder = (id: string) => advance(id, "Confirmed", actorLabel[role]);
   const acceptOrder  = (id: string) => advance(id, "Accepted",  actorLabel[role]);
-  const startCooking = (id: string) => advance(id, "Preparing", actorLabel[role]);
-  const markReady    = (id: string) => advance(id, "Ready",     actorLabel[role]);
+  const startCooking = (id: string) => {
+    const o = orders.find((item) => item.id === id);
+    const tableX = o?.table ?? id;
+    playSound(`Order for Table ${tableX} is now preparing`);
+    advance(id, "Preparing", actorLabel[role]);
+  };
+  const markReady    = (id: string) => {
+    const o = orders.find((item) => item.id === id);
+    const tableX = o?.table ?? id;
+    playSound(`Order for Table ${tableX} is ready, please serve`);
+    advance(id, "Ready",     actorLabel[role]);
+  };
   const markServed   = (id: string) => advance(id, "Completed", actorLabel[role]);
   const cancelOrder  = (id: string) => advance(id, "Cancelled", actorLabel[role]);
 

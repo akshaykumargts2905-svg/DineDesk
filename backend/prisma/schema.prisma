@@ -30,13 +30,10 @@ enum OrderType {
 // 5. READY      → Kitchen marks ready (waiter notified)
 // 6. COMPLETED  → Waiter marks served
 enum OrderStatus {
-  PLACED
   CONFIRMED
   ACCEPTED
   PREPARING
   READY
-  COMPLETED
-  CANCELLED
 }
 
 // PAYMENT STATUS
@@ -156,7 +153,7 @@ model Order {
   customerPhone String?
 
   orderType OrderType
-  status    OrderStatus @default(PLACED)
+  status    OrderStatus @default(CONFIRMED)
 
   paymentStatus PaymentStatus @default(UNPAID)
   paymentMethod PaymentMethod?

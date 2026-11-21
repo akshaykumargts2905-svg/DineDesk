@@ -86,11 +86,12 @@ export default function Home() {
   ];
 
   const statusStyle: Record<string, string> = {
-    PREPARING: "bg-orange-100 text-orange-600",
-    PLACED: "bg-blue-100 text-blue-600",
+    CONFIRMED: "bg-blue-100 text-blue-600",
     ACCEPTED: "bg-blue-100 text-blue-600",
+    PREPARING: "bg-orange-100 text-orange-600",
+    READY: "bg-green-100 text-green-600",
+    PLACED: "bg-blue-100 text-blue-600",
     COMPLETED: "bg-green-100 text-green-600",
-    READY: "bg-indigo-100 text-indigo-600",
     SERVED: "bg-green-100 text-green-600",
     CANCELLED: "bg-red-100 text-red-600",
   };

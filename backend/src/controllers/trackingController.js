@@ -7,7 +7,7 @@ export const getActiveOrders = async (req, res, next) => {
     const restaurantId = req.user.restaurantId;
     const { orderType, tableId } = req.query;
 
-    const activeStatuses = ['PLACED', 'ACCEPTED', 'PREPARING', 'READY', 'SERVED'];
+    const activeStatuses = ['CONFIRMED', 'ACCEPTED', 'PREPARING', 'READY'];
 
     const orders = await prisma.order.findMany({
       where: {
@@ -89,18 +89,18 @@ export const markOrderServed = async (req, res, next) => {
       return errorResponse(res, 404, 'Order not found');
     }
 
-    if (!isValidStatusTransition(order.status, 'SERVED')) {
+    if (!isValidStatusTransition(order.status, 'READY')) {
       return errorResponse(
         res,
         400,
-        `Cannot mark order as served from status '${order.status}'. It must be 'READY' first.`
+        `Cannot mark order as served from status '${order.status}'. It must be in preparation first.`
       );
     }
 
     const updated = await prisma.$transaction(async (tx) => {
       const updatedOrder = await tx.order.update({
         where: { id: order.id },
-        data: { status: 'SERVED' },
+        data: { status: 'READY' },
         include: { items: true, table: true },
       });
 
@@ -108,7 +108,7 @@ export const markOrderServed = async (req, res, next) => {
         data: {
           orderId: order.id,
           fromStatus: order.status,
-          toStatus: 'SERVED',
+          toStatus: 'READY',
           note: note ? note.trim() : 'Order served to customer',
           changedById: req.user.id,
         },
@@ -143,11 +143,11 @@ export const completeOrder = async (req, res, next) => {
       return errorResponse(res, 404, 'Order not found');
     }
 
-    if (!isValidStatusTransition(order.status, 'COMPLETED')) {
+    if (order.status !== 'READY' && !isValidStatusTransition(order.status, 'READY')) {
       return errorResponse(
         res,
         400,
-        `Cannot complete order from status '${order.status}'. Order must be 'SERVED' first.`
+        `Cannot complete order from status '${order.status}'.`
       );
     }
 
@@ -155,7 +155,7 @@ export const completeOrder = async (req, res, next) => {
       const updatedOrder = await tx.order.update({
         where: { id: order.id },
         data: {
-          status: 'COMPLETED',
+          status: 'READY',
           ...(paymentStatus && { paymentStatus }),
           ...(paymentMethod && { paymentMethod }),
         },
@@ -166,7 +166,7 @@ export const completeOrder = async (req, res, next) => {
         data: {
           orderId: order.id,
           fromStatus: order.status,
-          toStatus: 'COMPLETED',
+          toStatus: 'READY',
           note: note ? note.trim() : 'Order completed and finalized',
           changedById: req.user.id,
         },

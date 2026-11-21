@@ -6,6 +6,7 @@ import KitchenColumn from "@/components/kitchen/KitchenColumn";
 import { KitchenItem } from "@/components/kitchen/KitchenOrderCard";
 import { kitchenService, Order, ApiError } from "@/services/api";
 import { getNewKitchenOrderIds, playNotificationSound, speakNewOrderReceived } from "@/services/notificationSound";
+import { playSound } from "@/app/utils/sound";
 
 const formatBackendOrder = (order: Order): KitchenItem => ({
   id: order.id,
@@ -16,6 +17,7 @@ const formatBackendOrder = (order: Order): KitchenItem => ({
   qty: order.items.reduce((sum, item) => sum + item.quantity, 0),
   time: new Date(order.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
   specialInstructions: order.items.map((item) => item.specialInstructions).filter(Boolean).join(" · ") || order.notes || undefined,
+  tableNumber: order.table?.tableNumber,
 });
 
 export default function KitchenPage() {
@@ -37,7 +39,7 @@ export default function KitchenPage() {
         playNotificationSound();
         speakNewOrderReceived();
       }
-      setPendingOrders(orders.filter((order) => order.status === "PLACED" || order.status === "ACCEPTED").map(formatBackendOrder));
+      setPendingOrders(orders.filter((order) => order.status === "CONFIRMED" || order.status === "ACCEPTED").map(formatBackendOrder));
       setPreparingOrders(orders.filter((order) => order.status === "PREPARING").map(formatBackendOrder));
       setReadyOrders(orders.filter((order) => order.status === "READY").map(formatBackendOrder));
       setErrorMessage("");
@@ -59,8 +61,9 @@ export default function KitchenPage() {
     setErrorMessage("");
     try {
       const order = pendingOrders.find((item) => item.id === orderId);
-      if (order?.status === "PLACED") await kitchenService.accept(orderId);
-      await kitchenService.startPrep(orderId);
+      const updated = await kitchenService.startPrep(orderId);
+      const tableX = order?.tableNumber ?? updated?.table?.tableNumber ?? order?.orderNumber ?? updated?.orderNumber ?? "";
+      playSound(`Order for Table ${tableX} is now preparing`);
       await loadKitchen();
     } catch (err) {
       setErrorMessage(err instanceof ApiError ? err.message : "Could not start preparation.");
@@ -73,7 +76,10 @@ export default function KitchenPage() {
     setLoadingId(orderId);
     setErrorMessage("");
     try {
-      await kitchenService.markReady(orderId);
+      const order = preparingOrders.find((item) => item.id === orderId);
+      const updated = await kitchenService.markReady(orderId);
+      const tableX = order?.tableNumber ?? updated?.table?.tableNumber ?? order?.orderNumber ?? updated?.orderNumber ?? "";
+      playSound(`Order for Table ${tableX} is ready, please serve`);
       await loadKitchen();
     } catch (err) {
       setErrorMessage(err instanceof ApiError ? err.message : "Could not mark order ready.");

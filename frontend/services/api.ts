@@ -123,7 +123,7 @@ export interface Order {
   customerName?: string | null;
   customerPhone?: string | null;
   orderType: "DINE_IN" | "TAKEAWAY" | "DELIVERY";
-  status: "PLACED" | "ACCEPTED" | "PREPARING" | "READY" | "SERVED" | "COMPLETED" | "CANCELLED";
+  status: "CONFIRMED" | "ACCEPTED" | "PREPARING" | "READY";
   paymentStatus: string;
   paymentMethod?: string | null;
   subtotal: number | string;

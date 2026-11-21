@@ -12,7 +12,7 @@ export default function StatusBadge({ status, size = "md" }: StatusBadgeProps) {
 
   if (normalized.includes("prep")) {
     style = "bg-orange-50 text-orange-600 border-orange-200/80";
-  } else if (normalized.includes("pend") || normalized.includes("place")) {
+  } else if (normalized.includes("pend") || normalized.includes("place") || normalized.includes("confirm")) {
     style = "bg-blue-50 text-blue-600 border-blue-200/80";
   } else if (normalized.includes("ready")) {
     style = "bg-indigo-50 text-indigo-600 border-indigo-200/80";

@@ -219,13 +219,10 @@ export default function AllOrdersPage() {
             onChange={setStatusFilter}
             options={[
               { label: "All Status", value: "ALL" },
-              { label: "Placed", value: "PLACED" },
+              { label: "Confirmed", value: "CONFIRMED" },
               { label: "Accepted", value: "ACCEPTED" },
               { label: "Preparing", value: "PREPARING" },
               { label: "Ready", value: "READY" },
-              { label: "Served", value: "SERVED" },
-              { label: "Completed", value: "COMPLETED" },
-              { label: "Cancelled", value: "CANCELLED" },
             ]}
             className="w-full sm:w-44"
           />
@@ -333,13 +330,10 @@ export default function AllOrdersPage() {
                   }
                   className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
                 >
-                  <option value="PLACED">Placed</option>
+                  <option value="CONFIRMED">Confirmed</option>
                   <option value="ACCEPTED">Accepted</option>
                   <option value="PREPARING">Preparing</option>
                   <option value="READY">Ready</option>
-                  <option value="SERVED">Served</option>
-                  <option value="COMPLETED">Completed</option>
-                  <option value="CANCELLED">Cancelled</option>
                 </select>
               </div>
             </div>

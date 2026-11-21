@@ -10,6 +10,7 @@ export interface KitchenItem {
   status: string;
   specialInstructions?: string;
   imageUrl?: string;
+  tableNumber?: number | string | null;
 }
 
 interface KitchenOrderCardProps {
