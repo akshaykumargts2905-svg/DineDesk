@@ -15,6 +15,7 @@ interface OrderSummaryProps {
   onRemove: (id: string) => void;
   onPlaceOrder: () => void;
   isSubmitting?: boolean;
+  readOnly?: boolean;
 }
 
 export default function OrderSummary({
@@ -24,6 +25,7 @@ export default function OrderSummary({
   onRemove,
   onPlaceOrder,
   isSubmitting = false,
+  readOnly = false,
 }: OrderSummaryProps) {
   const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const tax = Math.round(subtotal * 0.05 * 100) / 100;
@@ -134,10 +136,12 @@ export default function OrderSummary({
 
         <button
           onClick={onPlaceOrder}
-          disabled={items.length === 0 || isSubmitting}
+          disabled={items.length === 0 || isSubmitting || readOnly}
           className="w-full bg-orange-500 hover:bg-orange-600 disabled:bg-gray-300 text-white font-bold py-3.5 px-4 rounded-xl transition-all shadow-md shadow-orange-500/20 flex items-center justify-center gap-2 text-sm md:text-base disabled:cursor-not-allowed cursor-pointer"
         >
-          {isSubmitting ? (
+          {readOnly ? (
+            <span>Demo is read-only</span>
+          ) : isSubmitting ? (
             <span>Placing Order...</span>
           ) : (
             <>

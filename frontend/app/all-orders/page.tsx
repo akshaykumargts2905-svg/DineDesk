@@ -8,11 +8,13 @@ import FilterDropdown from "@/components/common/FilterDropdown";
 import DataTable from "@/components/common/DataTable";
 import OrderDetails from "@/components/orders/OrderDetails";
 import { orderService, Order, ApiError } from "@/services/api";
+import { useAuth } from "@/components/auth/AuthProvider";
 
 const label = (value = "") => value.toLowerCase().split("_").map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(" ");
 type OrderDetailsModel = Omit<Order, "table" | "orderType"> & { table?: string; orderType: string };
 
 export default function AllOrdersPage() {
+  const { user } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
@@ -177,23 +179,23 @@ export default function AllOrdersPage() {
           </button>
 
           {/* Edit */}
-          <button
+          {!user?.isDemo && <button
             onClick={() => setEditingOrder({ ...row })}
             className="w-8 h-8 rounded-lg bg-gray-100 hover:bg-blue-100 text-gray-600 hover:text-blue-600 flex items-center justify-center transition"
             title="Edit Order"
           >
             ✎
-          </button>
+          </button>}
 
           {/* Cancel */}
-          <button
+          {!user?.isDemo && <button
             onClick={() => setCancellingOrder(row)}
             disabled={row.status?.toLowerCase() === "completed" || row.status?.toLowerCase() === "cancelled"}
             className="w-8 h-8 rounded-lg bg-gray-100 hover:bg-red-100 text-gray-600 hover:text-red-600 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center transition"
             title="Cancel Order"
           >
             🗑
-          </button>
+          </button>}
         </div>
       ),
     },

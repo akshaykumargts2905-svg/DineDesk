@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import prisma from '../config/db.js';
 import { successResponse, errorResponse } from '../utils/responseHandler.js';
+import { DEMO_USER_EMAIL, ensureDemoAccount } from '../services/demoAccountService.js';
 
 const getJwtSecret = () => {
   if (!process.env.JWT_SECRET) {
@@ -20,6 +21,7 @@ const generateToken = (user) => {
       email: user.email,
       role: user.role,
       restaurantId: user.restaurantId,
+      ...(user.isDemo === true && { isDemo: true }),
     },
     secret,
     { expiresIn }
@@ -32,6 +34,10 @@ export const register = async (req, res, next) => {
 
     if (!restaurantName || !name || !email || !password) {
       return errorResponse(res, 400, 'Restaurant name, user name, email, and password are required');
+    }
+
+    if (email.toLowerCase().trim() === DEMO_USER_EMAIL) {
+      return errorResponse(res, 400, 'This email address is reserved for demo access');
     }
 
     if (password.length < 6) {
@@ -108,6 +114,10 @@ export const login = async (req, res, next) => {
       return errorResponse(res, 400, 'Email and password are required');
     }
 
+    if (email.toLowerCase().trim() === DEMO_USER_EMAIL) {
+      return errorResponse(res, 401, 'Use the guest demo login button for this account');
+    }
+
     const user = await prisma.user.findUnique({
       where: { email: email.toLowerCase().trim() },
       include: {
@@ -136,6 +146,21 @@ export const login = async (req, res, next) => {
     return successResponse(res, 200, 'Login successful', {
       token,
       user: userData,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const demoLogin = async (req, res, next) => {
+  try {
+    const user = await ensureDemoAccount();
+    const token = generateToken({ ...user, isDemo: true });
+    const { password: _, ...userData } = user;
+
+    return successResponse(res, 200, 'Demo login successful', {
+      token,
+      user: { ...userData, isDemo: true },
     });
   } catch (error) {
     next(error);

@@ -3,10 +3,12 @@
 import { FormEvent, useEffect, useState } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { ApiError, MenuCategory, MenuItem, menuService } from "@/services/api";
+import { useAuth } from "@/components/auth/AuthProvider";
 
 const fieldClass = "mt-1.5 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm text-gray-800 focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500/20";
 
 export default function MenuManagementPage() {
+  const { user } = useAuth();
   const [categories, setCategories] = useState<MenuCategory[]>([]);
   const [items, setItems] = useState<MenuItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -129,7 +131,7 @@ export default function MenuManagementPage() {
               <label className="block text-xs font-semibold text-gray-600">Description
                 <textarea rows={2} maxLength={250} value={categoryForm.description} onChange={(event) => setCategoryForm({ ...categoryForm, description: event.target.value })} className={fieldClass} placeholder="Optional category details" />
               </label>
-              <button disabled={savingCategory} className="w-full rounded-xl bg-orange-500 px-4 py-3 text-sm font-bold text-white transition hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-60">
+              <button disabled={user?.isDemo || savingCategory} className="w-full rounded-xl bg-orange-500 px-4 py-3 text-sm font-bold text-white transition hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-60">
                 {savingCategory ? "Saving…" : "Add Category"}
               </button>
             </form>
@@ -187,7 +189,7 @@ export default function MenuManagementPage() {
                 <input type="checkbox" checked={itemForm.isAvailable} onChange={(event) => setItemForm({ ...itemForm, isAvailable: event.target.checked })} className="h-4 w-4 accent-orange-500" />
                 Available to order
               </label>
-              <button disabled={savingItem || loading || categories.length === 0} className="rounded-xl bg-orange-500 px-4 py-3 text-sm font-bold text-white transition hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-60 md:col-span-2">
+              <button disabled={user?.isDemo || savingItem || loading || categories.length === 0} className="rounded-xl bg-orange-500 px-4 py-3 text-sm font-bold text-white transition hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-60 md:col-span-2">
                 {savingItem ? "Saving…" : "Add Menu Item"}
               </button>
             </form>
@@ -217,7 +219,7 @@ export default function MenuManagementPage() {
                     <span>{item.prepTimeMinutes ? `${item.prepTimeMinutes} min prep` : "Prep time not set"}</span>
                   </div>
                 </div>
-                <button type="button" disabled={updatingItem === item.id} onClick={() => void toggleAvailability(item)} className="shrink-0 rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-600 transition hover:border-orange-300 hover:text-orange-600 disabled:opacity-50">
+                <button type="button" disabled={user?.isDemo || updatingItem === item.id} onClick={() => void toggleAvailability(item)} className="shrink-0 rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-600 transition hover:border-orange-300 hover:text-orange-600 disabled:opacity-50">
                   {updatingItem === item.id ? "Updating…" : item.isAvailable ? "Mark unavailable" : "Mark available"}
                 </button>
               </article>)}

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Sidebar from "./Sidebar";
 import Header from "./Header";
+import { useAuth } from "@/components/auth/AuthProvider";
 
 interface DashboardLayoutProps {
   title: string;
@@ -16,6 +17,7 @@ export default function DashboardLayout({
   children,
 }: DashboardLayoutProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const { user } = useAuth();
 
   return (
     <div className="min-h-screen bg-[#F3F4F8] flex">
@@ -34,6 +36,12 @@ export default function DashboardLayout({
             subtitle={subtitle}
             onMenuClick={() => setIsSidebarOpen(true)}
           />
+
+          {user?.isDemo && (
+            <div role="status" className="mb-5 rounded-xl border border-orange-100 bg-orange-50 px-4 py-3 text-sm font-medium text-orange-800">
+              Demo mode is read-only. You can explore sample restaurant data, but changes are disabled.
+            </div>
+          )}
 
           {/* Page Specific Content */}
           {children}

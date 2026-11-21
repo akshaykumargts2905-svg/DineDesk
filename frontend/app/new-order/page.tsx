@@ -6,8 +6,10 @@ import MenuItemCard from "@/components/orders/MenuItemCard";
 import OrderSummary, { CartItem } from "@/components/orders/OrderSummary";
 import { menuService, tableService, orderService, ApiError, MenuItem, DiningTable } from "@/services/api";
 import { playNotificationSound, speakOrderPlaced, unlockNotificationAudio } from "@/services/notificationSound";
+import { useAuth } from "@/components/auth/AuthProvider";
 
 export default function NewOrderPage() {
+  const { user } = useAuth();
   // Customer details
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
@@ -92,6 +94,10 @@ export default function NewOrderPage() {
 
   // Place Order handler
   const handlePlaceOrder = async () => {
+    if (user?.isDemo) {
+      setErrorMessage("Demo mode is read-only. Orders cannot be placed.");
+      return;
+    }
     if (cart.length === 0) return;
     if (orderType === "Dine In" && !selectedTable) {
       setErrorMessage("Select an active table before placing a dine-in order.");
@@ -311,6 +317,7 @@ export default function NewOrderPage() {
             onRemove={handleRemove}
             onPlaceOrder={handlePlaceOrder}
             isSubmitting={isSubmitting}
+            readOnly={user?.isDemo}
           />
         </div>
       </div>

@@ -55,7 +55,15 @@ export const authenticate = async (req, res, next) => {
       return errorResponse(res, 403, 'User account is deactivated');
     }
 
-    req.user = user;
+    const isDemo = decoded.isDemo === true;
+    const isWriteRequest = !['GET', 'HEAD', 'OPTIONS'].includes(req.method);
+    const isLogout = req.originalUrl.split('?')[0].endsWith('/api/auth/logout');
+
+    if (isDemo && isWriteRequest && !isLogout) {
+      return errorResponse(res, 403, 'Demo mode is read-only. Changes are disabled.');
+    }
+
+    req.user = { ...user, isDemo };
     next();
   } catch (error) {
     console.error('Auth middleware error:', error);

@@ -5,8 +5,10 @@ import DashboardLayout from "@/components/layout/DashboardLayout";
 import OrderTimeline from "@/components/orders/OrderTimeline";
 import { ApiError, Order, trackingService } from "@/services/api";
 import { playSound } from "@/app/utils/sound";
+import { useAuth } from "@/components/auth/AuthProvider";
 
 export default function TrackingPage() {
+  const { user } = useAuth();
   const [searchId, setSearchId] = useState("");
   const [activeOrder, setActiveOrder] = useState<Order | null>(null);
   const [isSearching, setIsSearching] = useState(false);
@@ -210,14 +212,20 @@ export default function TrackingPage() {
                   placed: historyTime("CONFIRMED"),
                   preparing: historyTime("PREPARING"),
                   ready: historyTime("READY"),
-                  served: historyTime("READY"),
+                  served: historyTime("SERVED"),
                 }}
               />
             </div>
 
-            {activeOrder.status === "READY" && (
+            {!user?.isDemo && (activeOrder.status === "READY" || activeOrder.status === "SERVED") && (
               <div className="flex flex-wrap gap-2 pb-3">
-                <button disabled={actionBusy} onClick={() => void updateStatus("served")} className="flex-1 bg-orange-500 hover:bg-orange-600 disabled:opacity-60 text-white text-xs font-bold py-2.5 rounded-xl">{actionBusy ? "Saving…" : "Mark Served"}</button>
+                {activeOrder.status === "READY" && <button disabled={actionBusy} onClick={() => void updateStatus("served")} className="flex-1 bg-orange-500 hover:bg-orange-600 disabled:opacity-60 text-white text-xs font-bold py-2.5 rounded-xl">{actionBusy ? "Saving…" : "Mark Served"}</button>}
+                {activeOrder.status === "SERVED" && <>
+                  <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} className="flex-1 border border-gray-200 rounded-xl px-2 text-xs">
+                    <option value="CASH">Cash</option><option value="CARD">Card</option><option value="UPI">UPI</option><option value="OTHER">Other</option>
+                  </select>
+                  <button disabled={actionBusy} onClick={() => void updateStatus("complete")} className="flex-1 bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white text-xs font-bold py-2.5 rounded-xl">{actionBusy ? "Saving…" : "Complete & Pay"}</button>
+                </>}
               </div>
             )}
             {errorMessage && <p role="alert" className="text-xs text-red-600 pb-2">{errorMessage}</p>}

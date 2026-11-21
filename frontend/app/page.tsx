@@ -229,7 +229,7 @@ export default function Home() {
 
             </div>
 
-            <button onClick={() => void clearNotifications()} aria-label="Mark notifications as read" className="text-2xl relative">
+            <button onClick={() => void clearNotifications()} disabled={user?.isDemo} aria-label="Mark notifications as read" className="text-2xl relative disabled:cursor-not-allowed">
               ♧
               {unreadCount > 0 && <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs min-w-5 h-5 px-1 rounded-full flex items-center justify-center">{unreadCount > 9 ? "9+" : unreadCount}</span>}
             </button>

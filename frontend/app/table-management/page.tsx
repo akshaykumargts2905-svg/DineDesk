@@ -3,10 +3,12 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { ApiError, DiningTable, tableService } from "@/services/api";
+import { useAuth } from "@/components/auth/AuthProvider";
 
 const inputClass = "mt-1.5 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm text-gray-800 focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500/20";
 
 export default function TableManagementPage() {
+  const { user } = useAuth();
   const [tables, setTables] = useState<DiningTable[]>([]);
   const [tableNumber, setTableNumber] = useState("");
   const [seats, setSeats] = useState("");
@@ -100,7 +102,7 @@ export default function TableManagementPage() {
                 <input type="checkbox" checked={isActive} onChange={(event) => setIsActive(event.target.checked)} className="h-4 w-4 accent-orange-500" />
                 Active and available for orders
               </label>
-              <button disabled={saving} className="w-full rounded-xl bg-orange-500 px-4 py-3 text-sm font-bold text-white transition hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-60">
+              <button disabled={user?.isDemo || saving} className="w-full rounded-xl bg-orange-500 px-4 py-3 text-sm font-bold text-white transition hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-60">
                 {saving ? "Saving…" : "Add Table"}
               </button>
             </form>
@@ -139,7 +141,7 @@ export default function TableManagementPage() {
                     <td className="p-4 font-bold text-gray-900">Table {table.tableNumber}</td>
                     <td className="p-4">{table.seats ?? "—"}</td>
                     <td className="p-4"><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${table.isActive ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-500"}`}>{table.isActive ? "Active" : "Inactive"}</span></td>
-                    <td className="p-4"><button type="button" disabled={updatingId === table.id} onClick={() => void toggleTable(table)} className="rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-600 transition hover:border-orange-300 hover:text-orange-600 disabled:opacity-50">{updatingId === table.id ? "Updating…" : table.isActive ? "Deactivate" : "Activate"}</button></td>
+                    <td className="p-4"><button type="button" disabled={user?.isDemo || updatingId === table.id} onClick={() => void toggleTable(table)} className="rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-600 transition hover:border-orange-300 hover:text-orange-600 disabled:opacity-50">{user?.isDemo ? "Read only" : updatingId === table.id ? "Updating…" : table.isActive ? "Deactivate" : "Activate"}</button></td>
                   </tr>)}
                 </tbody>
               </table>

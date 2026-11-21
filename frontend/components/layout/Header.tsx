@@ -107,6 +107,7 @@ export default function Header({ title, subtitle, onMenuClick }: HeaderProps) {
         {/* Notifications */}
         <button
           onClick={() => void markNotificationsRead()}
+          disabled={user?.isDemo}
           className="w-10 h-10 rounded-full bg-white shadow-sm border border-gray-100 flex items-center justify-center text-lg text-gray-700 relative hover:bg-gray-50 transition"
           aria-label="Notifications"
         >

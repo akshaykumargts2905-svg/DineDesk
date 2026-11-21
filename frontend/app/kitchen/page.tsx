@@ -7,6 +7,7 @@ import { KitchenItem } from "@/components/kitchen/KitchenOrderCard";
 import { kitchenService, Order, ApiError } from "@/services/api";
 import { getNewKitchenOrderIds, playNotificationSound, speakNewOrderReceived } from "@/services/notificationSound";
 import { playSound } from "@/app/utils/sound";
+import { useAuth } from "@/components/auth/AuthProvider";
 
 const formatBackendOrder = (order: Order): KitchenItem => ({
   id: order.id,
@@ -21,6 +22,7 @@ const formatBackendOrder = (order: Order): KitchenItem => ({
 });
 
 export default function KitchenPage() {
+  const { user } = useAuth();
   const [pendingOrders, setPendingOrders] = useState<KitchenItem[]>([]);
   const [preparingOrders, setPreparingOrders] = useState<KitchenItem[]>([]);
   const [readyOrders, setReadyOrders] = useState<KitchenItem[]>([]);
@@ -92,8 +94,8 @@ export default function KitchenPage() {
     <DashboardLayout title="Kitchen" subtitle="Manage kitchen orders and update status">
       {errorMessage && <p role="alert" className="mb-4 text-sm text-red-600">{errorMessage}</p>}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-start">
-        <KitchenColumn title="Pending Orders" count={pendingOrders.length} theme="orange" orders={pendingOrders} actionLabel="Start Preparing" actionColor="orange" onAction={handleStartPrep} loadingId={loadingId} />
-        <KitchenColumn title="Preparing Orders" count={preparingOrders.length} theme="navy" orders={preparingOrders} actionLabel="Mark Ready" actionColor="blue" onAction={handleMarkReady} loadingId={loadingId} />
+        <KitchenColumn title="Pending Orders" count={pendingOrders.length} theme="orange" orders={pendingOrders} actionLabel="Start Preparing" actionColor="orange" onAction={user?.isDemo ? undefined : handleStartPrep} loadingId={loadingId} />
+        <KitchenColumn title="Preparing Orders" count={preparingOrders.length} theme="navy" orders={preparingOrders} actionLabel="Mark Ready" actionColor="blue" onAction={user?.isDemo ? undefined : handleMarkReady} loadingId={loadingId} />
         <KitchenColumn title="Ready Orders" count={readyOrders.length} theme="green" orders={readyOrders} actionColor="green" />
       </div>
     </DashboardLayout>

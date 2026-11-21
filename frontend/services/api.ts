@@ -13,6 +13,7 @@ export interface User {
   name: string;
   email: string;
   role: "RESTAURANT_ADMIN" | "MANAGER" | "FRONT_OF_HOUSE" | "KITCHEN_STAFF";
+  isDemo?: boolean;
   restaurantId: string;
   restaurant?: { id: string; name: string; address?: string | null; phone?: string | null };
 }
@@ -79,6 +80,7 @@ const json = (method: string, payload?: unknown): RequestInit => ({
 export const authService = {
   login: (credentials: { email: string; password: string }) =>
     data<{ token: string; user: User }>("/auth/login", json("POST", credentials)),
+  demoLogin: () => data<{ token: string; user: User }>("/auth/demo", json("POST", {})),
   register: (payload: {
     restaurantName: string;
     address?: string;
